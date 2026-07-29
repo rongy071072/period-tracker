@@ -1097,8 +1097,10 @@ async function registerFace() {
   // PIN 验证：弹出 prompt 输入密码
   const pinInput = prompt('请输入管理员密码以注册人脸：');
   if (!pinInput) { regStatus.textContent = ''; regStatus.className = ''; return; }
-  const pinOk = await validatePin(pinInput);
-  if (!pinOk) {
+  const inputHash = Array.from(
+    new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pinInput + 'face_lock_salt')))
+  ).map(b => b.toString(16).padStart(2,'0')).join('');
+  if (inputHash !== PRESET_PIN_HASH) {
     regStatus.textContent = '❌ 密码错误';
     regStatus.className = 'lock-status error';
     return;
