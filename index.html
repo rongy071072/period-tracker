@@ -540,7 +540,10 @@
 
 </style>
 
-<script src="https://unpkg.com/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
+<script ></script>
+
+<!-- face-api.js 从同域名加载，避免CDN被屏蔽 -->
+<script src="https://rxlovecx.me/period-tracker/face-api.js"></script>
 </head>
 <body>
 
@@ -1282,81 +1285,31 @@ let lockVerified = false;
 let cameraReady = false;
 let faceModelReady = false;
 
-// 将 Array 转为 Float32Array 用于序列化存储
-function descriptorsToStorage(faces) {
-  return faces.map(f => ({
-    name: f.name,
-    descriptor: Array.from(f.descriptor)
-  }));
-}
-function storageToDescriptors(data) {
-  return data.map(f => ({
-    name: f.name,
-    descriptor: new Float32Array(f.descriptor)
-  }));
-}
 
-// 加载人脸注册数据
-function loadFaces() {
-  try {
-    const raw = localStorage.getItem(FACE_STORAGE_KEY);
-    return raw ? storageToDescriptors(JSON.parse(raw)) : [];
-  } catch (e) { return []; }
-}
-function saveFaces(faces) {
-  localStorage.setItem(FACE_STORAGE_KEY, JSON.stringify(descriptorsToStorage(faces)));
-}
 
-// 固定 PIN 验证 - 使用预设密码的 SHA-256 hash
-const PRESET_PIN_HASH = '0e7b5e8b8c9a4d3f2e1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d'; // 部署时替换为真实 hash
-async function verifyPin(inputPin) {
-  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(inputPin + 'face_lock_salt'));
-  const inputHash = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
-  return inputHash === PRESET_PIN_HASH;
-}
-// 启动时计算真实 PIN hash（只在首次，避免硬编码真实密码）
-async function initPinHash() {
-  if (!localStorage.getItem(PIN_STORAGE_KEY)) {
-    // 使用预设密码计算并存储 hash
-    const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('cxx071400.' + 'face_lock_salt'));
-    const h = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
-    localStorage.setItem(PIN_STORAGE_KEY, h);
-  }
-}
-async function validatePin(inputPin) {
-  const storedHash = localStorage.getItem(PIN_STORAGE_KEY);
-  if (!storedHash) await initPinHash();
-  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(inputPin + 'face_lock_salt'));
-  const inputHash = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
-  return inputHash === (localStorage.getItem(PIN_STORAGE_KEY) || '');
-}
 
 // 初始化 face-api 模型
 async function initFaceModels() {
   const subtitle = document.getElementById('lockSubtitle');
   const btn = document.getElementById('verifyBtn');
   
+  // face-api.js 由本地 <script> 标签同步加载，这里确认就绪
   if (typeof faceapi === 'undefined') {
-    subtitle.textContent = '⚠️ 模型加载失败，请刷新页面';
-    btn.textContent = '📦 加载失败';
+    subtitle.textContent = '⚠️ 库文件加载失败，请刷新';
+    btn.textContent = '无效';
     return false;
   }
   
   try {
-    subtitle.textContent = '⏳ 加载检测模型...';
+    subtitle.textContent = '⏳ 正在加载模型...';
     await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-    subtitle.textContent = '⏳ 加载特征模型...';
-    await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-    subtitle.textContent = '⏳ 加载识别模型...';
-    await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-    
     faceModelReady = true;
-    subtitle.textContent = '请正对摄像头，点击验证按钮';
+    subtitle.textContent = '请正对摄像头，输入密码验证';
     updateVerifyBtn();
     return true;
   } catch (e) {
     subtitle.textContent = '⚠️ 模型加载失败: ' + e.message;
-    btn.textContent = '🔄 点击重试';
+    btn.textContent = '🔄 重试';
     btn.disabled = false;
     btn.onclick = () => { location.reload(); };
     return false;
@@ -1365,17 +1318,17 @@ async function initFaceModels() {
 
 function updateVerifyBtn() {
   const btn = document.getElementById('verifyBtn');
-  const faces = loadFaces();
+  const hasRegistered = !!localStorage.getItem(FACE_STORAGE_KEY);
   if (!faceModelReady) {
     btn.disabled = true; btn.textContent = '⏳ 加载模型中...';
   } else if (!cameraReady) {
     btn.disabled = true; btn.textContent = '⏳ 摄像头准备中...';
-  } else if (faces.length === 0) {
-    btn.textContent = '⚠️ 请先注册人脸';
+  } else if (!hasRegistered) {
+    btn.textContent = '😊 注册人脸';
     btn.onclick = showRegisterForm;
     btn.disabled = false;
   } else {
-    btn.textContent = '🔍 开始验证';
+    btn.textContent = '🔍 验证身份';
     btn.onclick = verifyFace;
     btn.disabled = false;
   }
@@ -1567,7 +1520,6 @@ async function initLock() {
   document.getElementById('mainApp').style.display = 'none';
   document.getElementById('lockScreen').classList.remove('hidden');
   
-  await initPinHash();
   const modelOk = await initFaceModels();
   if (modelOk) await initCamera();
 }
