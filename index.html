@@ -367,7 +367,7 @@
         <div class="setting-row">
           <span class="setting-label">经期持续天数</span>
           <div class="cycle-input">
-            <input type="number" id="periodDaysInput" min="2" max="10" value="5">
+            <input type="number" id="periodDaysInput" min="2" max="10" value="7">
             <button onclick="updatePeriodDays()">保存</button>
           </div>
         </div>
@@ -410,7 +410,7 @@ function loadData() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
   } catch (e) {}
-  return { periods: [], cycleLength: 28, periodDays: 5 };
+  return { periods: [], cycleLength: 28, periodDays: 7 };
 }
 
 function saveData(data) {
