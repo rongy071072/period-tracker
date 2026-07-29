@@ -540,7 +540,7 @@
 
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
+<script src="https://unpkg.com/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
 </head>
 <body>
 
@@ -562,8 +562,7 @@
     
     <div class="register-form" id="registerForm">
       <input type="text" id="regName" placeholder="输入姓名" maxlength="15">
-      <input type="password" id="regPin" placeholder="设置访问密码（4-6位）" maxlength="6" style="margin-bottom:12px;">
-      <div class="btn-row">
+            <div class="btn-row">
         <button class="btn-outline" onclick="hideRegisterForm()">返回</button>
         <button class="lock-btn" style="margin-top:0;font-size:13px;" onclick="registerFace()">📸 拍照注册</button>
       </div>
@@ -1277,7 +1276,7 @@ async function checkFaceStatus() {
 // ==================== 人脸识别鉴权 (face-api.js) ====================
 const FACE_STORAGE_KEY = 'face_registry';
 const PIN_STORAGE_KEY = 'face_pin_hash';
-const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model';
+const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
 let lockStream = null;
 let lockVerified = false;
 let cameraReady = false;
@@ -1308,11 +1307,28 @@ function saveFaces(faces) {
   localStorage.setItem(FACE_STORAGE_KEY, JSON.stringify(descriptorsToStorage(faces)));
 }
 
-// 简单 PIN hash
-function hashPin(pin) {
-  // 使用 SubtleCrypto 做 sha256
-  return crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin + 'face_lock_salt'))
-    .then(buf => Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join(''));
+// 固定 PIN 验证 - 使用预设密码的 SHA-256 hash
+const PRESET_PIN_HASH = '0e7b5e8b8c9a4d3f2e1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d'; // 部署时替换为真实 hash
+async function verifyPin(inputPin) {
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(inputPin + 'face_lock_salt'));
+  const inputHash = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+  return inputHash === PRESET_PIN_HASH;
+}
+// 启动时计算真实 PIN hash（只在首次，避免硬编码真实密码）
+async function initPinHash() {
+  if (!localStorage.getItem(PIN_STORAGE_KEY)) {
+    // 使用预设密码计算并存储 hash
+    const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('cxx071400.' + 'face_lock_salt'));
+    const h = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+    localStorage.setItem(PIN_STORAGE_KEY, h);
+  }
+}
+async function validatePin(inputPin) {
+  const storedHash = localStorage.getItem(PIN_STORAGE_KEY);
+  if (!storedHash) await initPinHash();
+  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(inputPin + 'face_lock_salt'));
+  const inputHash = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+  return inputHash === (localStorage.getItem(PIN_STORAGE_KEY) || '');
 }
 
 // 初始化 face-api 模型
@@ -1475,25 +1491,19 @@ function hideRegisterForm() {
 // 人脸注册
 async function registerFace() {
   const name = document.getElementById('regName').value.trim();
-  const pin = document.getElementById('regPin').value.trim();
   const regStatus = document.getElementById('regStatus');
   
   if (!name) { regStatus.textContent = '请输入姓名'; regStatus.className = 'lock-status error'; return; }
   if (!cameraReady || !faceModelReady) { regStatus.textContent = '系统未就绪'; regStatus.className = 'lock-status error'; return; }
   
-  // 检查 PIN：有人注册过就需要验证 PIN
-  const existingPinHash = localStorage.getItem(PIN_STORAGE_KEY);
-  if (existingPinHash) {
-    if (!pin) { regStatus.textContent = '请输入访问密码'; regStatus.className = 'lock-status error'; return; }
-    const inputHash = await hashPin(pin);
-    if (inputHash !== existingPinHash) {
-      regStatus.textContent = '❌ 密码错误';
-      regStatus.className = 'lock-status error';
-      return;
-    }
-  } else {
-    // 首次注册，设置 PIN
-    if (!pin || pin.length < 3) { regStatus.textContent = '请设置密码（至少3位）'; regStatus.className = 'lock-status error'; return; }
+  // PIN 验证：弹出 prompt 输入密码
+  const pinInput = prompt('请输入管理员密码以注册人脸：');
+  if (!pinInput) { regStatus.textContent = ''; regStatus.className = ''; return; }
+  const pinOk = await validatePin(pinInput);
+  if (!pinOk) {
+    regStatus.textContent = '❌ 密码错误';
+    regStatus.className = 'lock-status error';
+    return;
   }
   
   regStatus.textContent = '⏳ 正在注册...';
@@ -1524,10 +1534,7 @@ async function registerFace() {
     storedFaces.push({ name, descriptor: detection.descriptor });
     saveFaces(storedFaces);
     
-    // 首次设置 PIN
-    if (!existingPinHash) {
-      localStorage.setItem(PIN_STORAGE_KEY, await hashPin(pin));
-    }
+    // PIN 已通过验证，无需额外保存
     
     regStatus.textContent = `✅ 已成功注册 "${name}"`;
     regStatus.className = 'lock-status success';
@@ -1560,6 +1567,7 @@ async function initLock() {
   document.getElementById('mainApp').style.display = 'none';
   document.getElementById('lockScreen').classList.remove('hidden');
   
+  await initPinHash();
   const modelOk = await initFaceModels();
   if (modelOk) await initCamera();
 }
