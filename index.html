@@ -315,11 +315,293 @@
   }
   @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
   @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+
+  /* ===== 人脸识别锁屏层 ===== */
+  .lock-screen {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 9999;
+    background: linear-gradient(135deg, #fce4ec 0%, #f3e5f5 50%, #e8eaf6 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  }
+  .lock-screen.hidden {
+    display: none;
+  }
+  .lock-screen .lock-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.1); opacity: 1; }
+  }
+  .lock-screen .lock-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #c2185b;
+    margin-bottom: 8px;
+  }
+  .lock-screen .lock-subtitle {
+    font-size: 13px;
+    color: #999;
+    margin-bottom: 24px;
+  }
+  .lock-screen .camera-wrapper {
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 4px 20px rgba(233,30,99,0.2);
+    border: 4px solid white;
+    background: #f5f5f5;
+    margin-bottom: 20px;
+  }
+  .lock-screen .camera-wrapper video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);  /* 镜像翻转，更自然 */
+  }
+  .lock-screen .camera-wrapper .camera-placeholder {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 64px;
+    color: #ddd;
+  }
+  .lock-screen .camera-wrapper canvas {
+    display: none;
+  }
+  .lock-screen .verify-btn {
+    padding: 14px 48px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 24px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 2px;
+    box-shadow: 0 4px 12px rgba(233,30,99,0.3);
+  }
+  .lock-screen .verify-btn:hover { background: var(--primary-dark); transform: translateY(-1px); }
+  .lock-screen .verify-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+  }
+  .lock-screen .verify-btn.loading {
+    pointer-events: none;
+    opacity: 0.7;
+  }
+  .lock-screen .lock-status {
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    min-height: 20px;
+    text-align: center;
+    max-width: 300px;
+  }
+  .lock-screen .lock-status.error { color: var(--danger); }
+  .lock-screen .lock-status.success { color: var(--success); }
+  .lock-screen .register-link {
+    margin-top: 32px;
+    font-size: 11px;
+    color: #ccc;
+    cursor: pointer;
+    border: none;
+    background: none;
+    text-decoration: underline;
+    transition: color 0.2s;
+  }
+  .lock-screen .register-link:hover { color: #999; }
+
+  /* 注册密码弹窗 */
+  .register-modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+  }
+  .register-modal.active { display: flex; }
+  .register-modal .register-dialog {
+    background: white;
+    border-radius: 16px;
+    padding: 28px 24px;
+    max-width: 360px;
+    width: 90%;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  }
+  .register-modal .register-dialog h3 {
+    font-size: 18px;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .register-modal .register-dialog .hint {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+  }
+  .register-modal .register-dialog input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+  .register-modal .register-dialog .dialog-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  /* ====== 人脸识别锁屏 ====== */
+  .lock-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 15, 25, 0.97);
+    z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .lock-overlay.hidden { display: none; }
+  .lock-card {
+    background: #1a1a2e; border-radius: 20px; padding: 32px 28px;
+    max-width: 420px; width: 92%; text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    color: #e0e0e0;
+  }
+  .lock-card h2 { font-size: 22px; color: #fff; margin-bottom: 4px; }
+  .lock-card .subtitle { font-size: 13px; color: #888; margin-bottom: 20px; }
+  .lock-camera-wrap {
+    position: relative; border-radius: 14px; overflow: hidden;
+    background: #000; margin-bottom: 16px; aspect-ratio: 4/3;
+  }
+  .lock-camera-wrap video, .lock-camera-wrap canvas {
+    width: 100%; height: 100%; object-fit: cover;
+  }
+  .lock-camera-wrap .guide-text {
+    position: absolute; bottom: 10px; left: 0; right: 0;
+    text-align: center; font-size: 12px; color: rgba(255,255,255,0.6);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  }
+  .lock-status {
+    font-size: 13px; min-height: 20px; margin: 8px 0;
+    transition: color 0.3s;
+  }
+  .lock-status.error { color: #f44336; }
+  .lock-status.success { color: #4caf50; }
+  .lock-status.loading { color: #ff9800; }
+  .lock-btn {
+    display: block; width: 100%; padding: 14px; border: none;
+    border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer;
+    color: #fff; background: linear-gradient(135deg, #667eea, #764ba2);
+    transition: all 0.3s; margin-top: 4px;
+  }
+  .lock-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(102,126,234,0.4); }
+  .lock-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .lock-register-link {
+    display: block; margin-top: 16px; font-size: 12px; color: #555;
+    cursor: pointer; text-decoration: none; transition: color 0.2s;
+  }
+  .lock-register-link:hover { color: #888; }
+  /* Register modal inside lock */
+  .register-form { display: none; }
+  .register-form.active { display: block; }
+  .register-form input {
+    width: 100%; padding: 12px; border: 1px solid #333; border-radius: 10px;
+    background: #12121f; color: #e0e0e0; font-size: 14px;
+    text-align: center; margin-bottom: 12px;
+  }
+  .register-form .btn-row { display: flex; gap: 8px; }
+  .register-form .btn-row button { flex: 1; }
+  .btn-outline {
+    padding: 10px; border: 1px solid #555; border-radius: 10px;
+    background: transparent; color: #aaa; font-size: 13px;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .btn-outline:hover { border-color: #888; color: #fff; }
+  .btn-camera-retry {
+    position: absolute; top: 8px; right: 8px; z-index: 2;
+    background: rgba(0,0,0,0.5); border: none; border-radius: 50%;
+    width: 30px; height: 30px; color: #fff; cursor: pointer;
+    font-size: 14px; display: none;
+  }
+
 </style>
+
+<script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
 </head>
 <body>
 
-<div class="container">
+<div class="lock-overlay" id="lockScreen">
+  <div class="lock-card">
+    <h2>🔒 身份验证</h2>
+    <p class="subtitle" id="lockSubtitle">加载人脸识别模型...</p>
+    
+    <div class="lock-camera-wrap">
+      <video id="lockCamera" autoplay playsinline muted></video>
+      <canvas id="lockCanvas" style="display:none"></canvas>
+      <div class="guide-text" id="cameraHint">正在初始化...</div>
+    </div>
+    
+    <button class="lock-btn" id="verifyBtn" onclick="verifyFace()" disabled>⏳ 加载模型中...</button>
+    <p class="lock-status" id="lockStatus"></p>
+    
+    <a class="lock-register-link" onclick="showRegisterForm()">注册人脸</a>
+    
+    <div class="register-form" id="registerForm">
+      <input type="text" id="regName" placeholder="输入姓名" maxlength="15">
+      <input type="password" id="regPin" placeholder="设置访问密码（4-6位）" maxlength="6" style="margin-bottom:12px;">
+      <div class="btn-row">
+        <button class="btn-outline" onclick="hideRegisterForm()">返回</button>
+        <button class="lock-btn" style="margin-top:0;font-size:13px;" onclick="registerFace()">📸 拍照注册</button>
+      </div>
+      <p class="lock-status" id="regStatus"></p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ===== 人脸识别锁屏层 ===== -->
+<div class="lock-screen" id="lockScreen">
+  <div class="lock-icon">🔒</div>
+  <div class="lock-title">身份验证</div>
+  <div class="lock-subtitle">请正对摄像头，点击下方按钮进行人脸识别</div>
+  <div class="camera-wrapper" id="cameraWrapper">
+    <span class="camera-placeholder" id="cameraPlaceholder">📷</span>
+    <video id="lockVideo" autoplay playsinline muted></video>
+    <canvas id="lockCanvas"></canvas>
+  </div>
+  <button class="verify-btn" id="verifyBtn" onclick="captureAndVerify()">🔍 验证身份</button>
+  <div class="lock-status" id="lockStatus"></div>
+  <button class="register-link" onclick="openRegisterDialog()">注册人脸</button>
+</div>
+
+<!-- 注册密码弹窗 -->
+<div class="register-modal" id="registerModal">
+  <div class="register-dialog">
+    <h3>🔐 注册人脸</h3>
+    <p class="hint">请输入注册密码以继续</p>
+    <input type="password" id="registerPassword" placeholder="请输入注册密码">
+    <div class="dialog-actions">
+      <button class="btn btn-sm" style="background:#f5f5f5;border:1px solid #ddd;" onclick="closeRegisterDialog()">取消</button>
+      <button class="btn btn-sm btn-primary" onclick="startRegister()">确认并录入</button>
+    </div>
+  </div>
+</div>
+
+<div class="container" id="mainApp" style="display:none;">
   <div class="header">
     <h1>🌸 经期记录助手</h1>
     <p class="subtitle">记录周期 · 掌握规律 · 从容生活</p>
@@ -772,12 +1054,535 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeModal();
 });
 
+// ==================== FACE AUTH ====================
+// API 地址：开发环境连 localhost，生产环境用 nginx 代理
+const FACE_API_BASE = (() => {
+  const host = window.location.hostname;
+  if (host === 'localhost' || host === '127.0.0.1') {
+    return 'http://localhost:5001';
+  }
+  return '/face';  // nginx proxy_pass → Flask
+})();
+
+let faceVerified = false;
+
+// ---- 摄像头操作 ----
+async function initCamera() {
+  const video = document.getElementById('lockVideo');
+  const placeholder = document.getElementById('cameraPlaceholder');
+  if (!video) return;
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 640 } }
+    });
+    video.srcObject = stream;
+    video.style.display = 'block';
+    if (placeholder) placeholder.style.display = 'none';
+    setLockStatus('', '');
+    return stream;
+  } catch (err) {
+    console.error('摄像头访问失败:', err);
+    if (placeholder) placeholder.textContent = '🚫';
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      setLockStatus('请允许摄像头权限以进行人脸识别', 'error');
+    } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+      setLockStatus('未检测到摄像头设备', 'error');
+    } else {
+      setLockStatus('无法访问摄像头，请检查设备设置', 'error');
+    }
+    return null;
+  }
+}
+
+function stopCamera() {
+  const video = document.getElementById('lockVideo');
+  if (video && video.srcObject) {
+    const tracks = video.srcObject.getTracks();
+    tracks.forEach(t => t.stop());
+    video.srcObject = null;
+  }
+}
+
+// ---- 截帧 ----
+function captureFrame() {
+  const video = document.getElementById('lockVideo');
+  const canvas = document.getElementById('lockCanvas');
+  if (!video || !canvas || !video.videoWidth) return null;
+
+  // 设置 canvas 尺寸与视频一致
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+
+  // 镜像翻转（与预览保持一致）
+  ctx.translate(canvas.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  // 恢复变换
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+  // 导出为 JPEG base64，质量 0.85
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
+
+// ---- 状态提示 ----
+function setLockStatus(msg, type) {
+  const el = document.getElementById('lockStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'lock-status' + (type ? ' ' + type : '');
+}
+
+// ---- 人脸验证 ----
+async function captureAndVerify() {
+  if (faceVerified) return;
+
+  const btn = document.getElementById('verifyBtn');
+  if (!btn) return;
+
+  // 按钮置为加载状态
+  btn.disabled = true;
+  btn.classList.add('loading');
+  btn.textContent = '⏳ 识别中…';
+  setLockStatus('正在识别，请稍候…', '');
+
+  try {
+    // 截帧
+    const imageData = captureFrame();
+    if (!imageData) {
+      setLockStatus('无法获取摄像头画面，请刷新页面重试', 'error');
+      return;
+    }
+
+    // 发送验证请求
+    const resp = await fetch(`${FACE_API_BASE}/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: imageData }),
+    });
+
+    const result = await resp.json();
+
+    if (resp.ok && result.ok) {
+      // 验证成功
+      faceVerified = true;
+      setLockStatus('✅ 验证通过，欢迎回来！', 'success');
+      btn.textContent = '✅ 已通过';
+
+      // 延迟隐藏锁屏，给用户一个反馈
+      setTimeout(() => {
+        document.getElementById('lockScreen').classList.add('hidden');
+        stopCamera();
+        // 初始化经期助手
+        initApp();
+      }, 600);
+    } else if (resp.status === 404 && result.error === 'no_registered_faces') {
+      // 尚未注册人脸
+      setLockStatus('系统尚未注册人脸数据，请先点击下方"注册人脸"', 'error');
+    } else {
+      // 验证失败
+      setLockStatus('❌ 人脸验证未通过，请再试一次', 'error');
+    }
+  } catch (err) {
+    console.error('人脸验证请求失败:', err);
+    // 不泄露技术细节
+    setLockStatus('服务暂时不可用，请稍后重试', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('loading');
+    if (!faceVerified) {
+      btn.textContent = '🔍 验证身份';
+    }
+  }
+}
+
+// ---- 注册人脸流程 ----
+function openRegisterDialog() {
+  document.getElementById('registerModal').classList.add('active');
+  document.getElementById('registerPassword').value = '';
+  // 聚焦密码输入框
+  setTimeout(() => document.getElementById('registerPassword').focus(), 100);
+}
+
+function closeRegisterDialog() {
+  document.getElementById('registerModal').classList.remove('active');
+}
+
+async function startRegister() {
+  const password = document.getElementById('registerPassword').value.trim();
+  if (!password) {
+    alert('请输入注册密码');
+    return;
+  }
+
+  setLockStatus('正在注册人脸，请正对摄像头…', '');
+
+  try {
+    // 截帧
+    const imageData = captureFrame();
+    if (!imageData) {
+      setLockStatus('无法获取摄像头画面，请刷新页面重试', 'error');
+      return;
+    }
+
+    // 发送注册请求（密码作为 token 发送给后端验证）
+    const resp = await fetch(`${FACE_API_BASE}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: imageData, token: password }),
+    });
+
+    const result = await resp.json();
+
+    if (resp.ok && result.ok) {
+      closeRegisterDialog();
+      setLockStatus('✅ 人脸注册成功！请点击上方按钮验证身份', 'success');
+    } else if (resp.status === 401) {
+      setLockStatus('', '');
+      alert('注册密码错误');
+    } else {
+      setLockStatus('', '');
+      alert(result.error || '注册失败，请重试');
+    }
+  } catch (err) {
+    console.error('人脸注册请求失败:', err);
+    setLockStatus('服务暂时不可用，请稍后重试', 'error');
+    closeRegisterDialog();
+  }
+}
+
+// 支持回车键提交注册密码
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && document.getElementById('registerModal').classList.contains('active')) {
+    startRegister();
+  }
+});
+
+// ---- 检查人脸数据状态 ----
+async function checkFaceStatus() {
+  try {
+    const resp = await fetch(`${FACE_API_BASE}/status`);
+    const result = await resp.json();
+    if (!result.registered) {
+      setLockStatus('系统尚未注册人脸数据，请先点击下方"注册人脸"', 'error');
+    }
+  } catch (err) {
+    // 静默失败，不影响用户体验
+    console.error('状态检查失败:', err);
+  }
+}
+
+
+// ==================== 人脸识别鉴权 (face-api.js) ====================
+const FACE_STORAGE_KEY = 'face_registry';
+const PIN_STORAGE_KEY = 'face_pin_hash';
+const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model';
+let lockStream = null;
+let lockVerified = false;
+let cameraReady = false;
+let faceModelReady = false;
+
+// 将 Array 转为 Float32Array 用于序列化存储
+function descriptorsToStorage(faces) {
+  return faces.map(f => ({
+    name: f.name,
+    descriptor: Array.from(f.descriptor)
+  }));
+}
+function storageToDescriptors(data) {
+  return data.map(f => ({
+    name: f.name,
+    descriptor: new Float32Array(f.descriptor)
+  }));
+}
+
+// 加载人脸注册数据
+function loadFaces() {
+  try {
+    const raw = localStorage.getItem(FACE_STORAGE_KEY);
+    return raw ? storageToDescriptors(JSON.parse(raw)) : [];
+  } catch (e) { return []; }
+}
+function saveFaces(faces) {
+  localStorage.setItem(FACE_STORAGE_KEY, JSON.stringify(descriptorsToStorage(faces)));
+}
+
+// 简单 PIN hash
+function hashPin(pin) {
+  // 使用 SubtleCrypto 做 sha256
+  return crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin + 'face_lock_salt'))
+    .then(buf => Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join(''));
+}
+
+// 初始化 face-api 模型
+async function initFaceModels() {
+  const subtitle = document.getElementById('lockSubtitle');
+  const btn = document.getElementById('verifyBtn');
+  
+  if (typeof faceapi === 'undefined') {
+    subtitle.textContent = '⚠️ 模型加载失败，请刷新页面';
+    btn.textContent = '📦 加载失败';
+    return false;
+  }
+  
+  try {
+    subtitle.textContent = '⏳ 加载检测模型...';
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    subtitle.textContent = '⏳ 加载特征模型...';
+    await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+    subtitle.textContent = '⏳ 加载识别模型...';
+    await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+    
+    faceModelReady = true;
+    subtitle.textContent = '请正对摄像头，点击验证按钮';
+    updateVerifyBtn();
+    return true;
+  } catch (e) {
+    subtitle.textContent = '⚠️ 模型加载失败: ' + e.message;
+    btn.textContent = '🔄 点击重试';
+    btn.disabled = false;
+    btn.onclick = () => { location.reload(); };
+    return false;
+  }
+}
+
+function updateVerifyBtn() {
+  const btn = document.getElementById('verifyBtn');
+  const faces = loadFaces();
+  if (!faceModelReady) {
+    btn.disabled = true; btn.textContent = '⏳ 加载模型中...';
+  } else if (!cameraReady) {
+    btn.disabled = true; btn.textContent = '⏳ 摄像头准备中...';
+  } else if (faces.length === 0) {
+    btn.textContent = '⚠️ 请先注册人脸';
+    btn.onclick = showRegisterForm;
+    btn.disabled = false;
+  } else {
+    btn.textContent = '🔍 开始验证';
+    btn.onclick = verifyFace;
+    btn.disabled = false;
+  }
+}
+
+// 初始化摄像头
+async function initCamera() {
+  const video = document.getElementById('lockCamera');
+  const hint = document.getElementById('cameraHint');
+  
+  try {
+    lockStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 640, height: 480, facingMode: 'user' },
+      audio: false
+    });
+    video.srcObject = lockStream;
+    video.onloadedmetadata = async () => {
+      cameraReady = true;
+      hint.textContent = '请正脸对准摄像头';
+      updateVerifyBtn();
+    };
+  } catch (e) {
+    hint.textContent = '❌ 需要摄像头权限';
+    updateVerifyBtn();
+  }
+}
+
+// 停止摄像头
+function stopCamera() {
+  if (lockStream) { lockStream.getTracks().forEach(t => t.stop()); lockStream = null; }
+  cameraReady = false;
+}
+
+// 人脸验证
+async function verifyFace() {
+  if (!cameraReady || !faceModelReady || lockVerified) return;
+  
+  const video = document.getElementById('lockCamera');
+  const canvas = document.getElementById('lockCanvas');
+  const status = document.getElementById('lockStatus');
+  const btn = document.getElementById('verifyBtn');
+  
+  btn.disabled = true;
+  btn.textContent = '⏳ 识别中...';
+  status.textContent = '';
+  status.className = 'lock-status loading';
+  
+  try {
+    const storedFaces = loadFaces();
+    if (storedFaces.length === 0) {
+      status.textContent = '⚠️ 请先注册人脸';
+      status.className = 'lock-status error';
+      btn.disabled = false;
+      return;
+    }
+    
+    // 用 faceapi 检测和识别
+    const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks().withFaceDescriptor();
+    
+    if (!detections) {
+      status.textContent = '❌ 未检测到人脸，请正对摄像头';
+      status.className = 'lock-status error';
+      btn.disabled = false; btn.textContent = '🔄 重新验证';
+      return;
+    }
+    
+    // 创建 LabeledFaceDescriptors 并比对
+    const labeledDescriptors = storedFaces.map(f => 
+      new faceapi.LabeledFaceDescriptors(f.name, [f.descriptor])
+    );
+    const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5);
+    const match = faceMatcher.findBestMatch(detections.descriptor);
+    
+    if (match.label !== 'unknown') {
+      lockVerified = true;
+      status.textContent = `✅ 欢迎，${match.label}！`;
+      status.className = 'lock-status success';
+      btn.textContent = '✅ 验证通过';
+      sessionStorage.setItem('face_verified', 'true');
+      sessionStorage.setItem('face_verified_at', Date.now().toString());
+      setTimeout(() => {
+        document.getElementById('lockScreen').classList.add('hidden');
+        document.getElementById('mainApp').style.display = '';
+        stopCamera();
+        refreshAll();
+      }, 600);
+    } else {
+      status.textContent = '❌ 人脸未识别通过，请再试一次';
+      status.className = 'lock-status error';
+      btn.disabled = false; btn.textContent = '🔄 重新验证';
+    }
+  } catch (e) {
+    status.textContent = '⚠️ 识别出错: ' + e.message;
+    status.className = 'lock-status error';
+    btn.disabled = false; btn.textContent = '🔄 重试';
+  }
+}
+
+// 注册表单
+function showRegisterForm() {
+  const regForm = document.getElementById('registerForm');
+  regForm.classList.add('active');
+  document.getElementById('regName').focus();
+}
+
+function hideRegisterForm() {
+  document.getElementById('registerForm').classList.remove('active');
+  document.getElementById('regStatus').textContent = '';
+  document.getElementById('regPin').value = '';
+}
+
+// 人脸注册
+async function registerFace() {
+  const name = document.getElementById('regName').value.trim();
+  const pin = document.getElementById('regPin').value.trim();
+  const regStatus = document.getElementById('regStatus');
+  
+  if (!name) { regStatus.textContent = '请输入姓名'; regStatus.className = 'lock-status error'; return; }
+  if (!cameraReady || !faceModelReady) { regStatus.textContent = '系统未就绪'; regStatus.className = 'lock-status error'; return; }
+  
+  // 检查 PIN：有人注册过就需要验证 PIN
+  const existingPinHash = localStorage.getItem(PIN_STORAGE_KEY);
+  if (existingPinHash) {
+    if (!pin) { regStatus.textContent = '请输入访问密码'; regStatus.className = 'lock-status error'; return; }
+    const inputHash = await hashPin(pin);
+    if (inputHash !== existingPinHash) {
+      regStatus.textContent = '❌ 密码错误';
+      regStatus.className = 'lock-status error';
+      return;
+    }
+  } else {
+    // 首次注册，设置 PIN
+    if (!pin || pin.length < 3) { regStatus.textContent = '请设置密码（至少3位）'; regStatus.className = 'lock-status error'; return; }
+  }
+  
+  regStatus.textContent = '⏳ 正在注册...';
+  regStatus.className = 'lock-status loading';
+  
+  try {
+    const video = document.getElementById('lockCamera');
+    const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks().withFaceDescriptor();
+    
+    if (!detection) {
+      regStatus.textContent = '❌ 未检测到清晰人脸';
+      regStatus.className = 'lock-status error';
+      return;
+    }
+    
+    // 检查是否已注册（相似度 > 0.7 认为同一人）
+    const storedFaces = loadFaces();
+    for (const f of storedFaces) {
+      const dist = faceapi.euclideanDistance(detection.descriptor, f.descriptor);
+      if (dist < 0.5) {
+        regStatus.textContent = `⚠️ 此人脸已注册为 "${f.name}"`;
+        regStatus.className = 'lock-status error';
+        return;
+      }
+    }
+    
+    storedFaces.push({ name, descriptor: detection.descriptor });
+    saveFaces(storedFaces);
+    
+    // 首次设置 PIN
+    if (!existingPinHash) {
+      localStorage.setItem(PIN_STORAGE_KEY, await hashPin(pin));
+    }
+    
+    regStatus.textContent = `✅ 已成功注册 "${name}"`;
+    regStatus.className = 'lock-status success';
+    updateVerifyBtn();
+    setTimeout(hideRegisterForm, 1500);
+  } catch (e) {
+    regStatus.textContent = '⚠️ 注册失败: ' + e.message;
+    regStatus.className = 'lock-status error';
+  }
+}
+
+// 检查 session
+function checkFaceSession() {
+  const verified = sessionStorage.getItem('face_verified');
+  const verifiedAt = parseInt(sessionStorage.getItem('face_verified_at') || '0');
+  const maxAge = 30 * 60 * 1000;
+  
+  if (verified === 'true' && (Date.now() - verifiedAt) < maxAge) {
+    lockVerified = true;
+    document.getElementById('lockScreen').classList.add('hidden');
+    document.getElementById('mainApp').style.display = '';
+    return true;
+  }
+  return false;
+}
+
+// 页面加载
+async function initLock() {
+  if (checkFaceSession()) { return; }
+  document.getElementById('mainApp').style.display = 'none';
+  document.getElementById('lockScreen').classList.remove('hidden');
+  
+  const modelOk = await initFaceModels();
+  if (modelOk) await initCamera();
+}
+
+initLock();
+window.addEventListener('beforeunload', stopCamera);
+
 // ==================== INIT ====================
-initCalendar();
-renderStats();
-renderHistory();
-document.getElementById('cycleLengthInput').value = appData.cycleLength;
-document.getElementById('periodDaysInput').value = appData.periodDays;
+function initApp() {
+  initCalendar();
+  renderStats();
+  renderHistory();
+  document.getElementById('cycleLengthInput').value = appData.cycleLength;
+  document.getElementById('periodDaysInput').value = appData.periodDays;
+}
+
+// 页面加载：先初始化摄像头和锁屏
+async function bootstrap() {
+  await initCamera();
+  checkFaceStatus();
+}
+
+bootstrap();
 </script>
 
 </body>
