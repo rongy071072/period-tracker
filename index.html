@@ -540,7 +540,7 @@
 
 </style>
 
-<script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
 </head>
 <body>
 
@@ -1417,7 +1417,7 @@ async function verifyFace() {
     }
     
     // 用 faceapi 检测和识别
-    const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+    const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
       .withFaceLandmarks().withFaceDescriptor();
     
     if (!detections) {
@@ -1501,7 +1501,7 @@ async function registerFace() {
   
   try {
     const video = document.getElementById('lockCamera');
-    const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+    const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
       .withFaceLandmarks().withFaceDescriptor();
     
     if (!detection) {
@@ -1564,6 +1564,11 @@ async function initLock() {
   if (modelOk) await initCamera();
 }
 
+// 暴露全局引用确保 onclick 能调用
+window.verifyFace = verifyFace;
+window.registerFace = registerFace;
+window.showRegisterForm = showRegisterForm;
+window.hideRegisterForm = hideRegisterForm;
 initLock();
 window.addEventListener('beforeunload', stopCamera);
 
