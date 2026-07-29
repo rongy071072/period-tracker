@@ -402,9 +402,6 @@
   }
   .lock-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(102,126,234,0.4); }
   .lock-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-    display: block; margin-top: 16px; font-size: 12px; color: #555;
-    cursor: pointer; text-decoration: none; transition: color 0.2s;
-  }
   /* Register modal inside lock */
   .register-form { display: none; }
   .register-form.active { display: block; }
@@ -430,7 +427,6 @@
 
 </style>
 
-<script ></script>
 
 <!-- face-api.js 从同域名加载，避免CDN被屏蔽 -->
 <script src="https://rxlovecx.me/period-tracker/face-api.js"></script>
@@ -925,13 +921,11 @@ document.addEventListener('keydown', (e) => {
 const FACE_STORAGE_KEY = 'face_registry';
 const PIN_STORAGE_KEY = 'face_pin_hash';
 const PRESET_PIN_HASH = "63470bd09c60478f8b24c7ba0b58401e266bed6d6f6ebaf20fe74f3bf05c8d1c";  // cxx071400.
-const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+const MODEL_URL = 'models';
 let lockStream = null;
 let lockVerified = false;
 let cameraReady = false;
 let faceModelReady = false;
-
-
 
 
 // 初始化 face-api 模型
@@ -1074,7 +1068,7 @@ async function verifyFace() {
   }
 }
 
-}
+
 
 // 注册表单
 function showRegisterForm() {
@@ -1135,35 +1129,6 @@ async function registerFace() {
   }
 }
 
-  
-  regStatus.textContent = '⏳ 正在注册...';
-  regStatus.className = 'lock-status loading';
-  
-  regStatus.textContent = '⏳ 正在检测人脸...';
-  regStatus.className = 'lock-status loading';
-  
-  try {
-    const video = document.getElementById('lockCamera');
-    const detection = await faceapi.detectSingleFace(video,
-      new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }));
-    
-    if (!detection) {
-      regStatus.textContent = '❌ 未检测到清晰人脸，请正对摄像头';
-      regStatus.className = 'lock-status error';
-      return;
-    }
-    
-    localStorage.setItem(FACE_STORAGE_KEY, JSON.stringify({ name: name, registeredAt: Date.now() }));
-    regStatus.textContent = `✅ 已成功注册 "${name}"`;
-    regStatus.className = 'lock-status success';
-    updateVerifyBtn();
-    setTimeout(hideRegisterForm, 1500);
-  } catch (e) {
-    regStatus.textContent = '⚠️ 检测失败: ' + e.message;
-    regStatus.className = 'lock-status error';
-  }
-
-}
 
 // 检查 session
 function checkFaceSession() {
@@ -1200,21 +1165,19 @@ window.addEventListener('beforeunload', stopCamera);
 
 // ==================== INIT ====================
 function initApp() {
+  // initCalendar, renderStats, renderHistory are called after face unlock
+  // or immediately if session is valid
   initCalendar();
   renderStats();
   renderHistory();
   document.getElementById('cycleLengthInput').value = appData.cycleLength;
   document.getElementById('periodDaysInput').value = appData.periodDays;
 }
-
-// 页面加载：先初始化摄像头和锁屏
-async function bootstrap() {
-  await initCamera();
-
-}
-
-bootstrap();
+initApp();
 </script>
+
+</body>
+</html>
 
 </body>
 </html>
