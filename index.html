@@ -1013,65 +1013,67 @@ async function verifyFace() {
   if (!cameraReady || !faceModelReady || lockVerified) return;
   
   const video = document.getElementById('lockCamera');
-  const canvas = document.getElementById('lockCanvas');
   const status = document.getElementById('lockStatus');
   const btn = document.getElementById('verifyBtn');
   
+  if (!localStorage.getItem(FACE_STORAGE_KEY)) {
+    status.textContent = '⚠️ 请先注册人脸';
+    status.className = 'lock-status error';
+    btn.onclick = showRegisterForm;
+    btn.disabled = false;
+    return;
+  }
+  
   btn.disabled = true;
-  btn.textContent = '⏳ 识别中...';
+  btn.textContent = '⏳ 检测中...';
   status.textContent = '';
   status.className = 'lock-status loading';
   
   try {
-    const storedFaces = loadFaces();
-    if (storedFaces.length === 0) {
-      status.textContent = '⚠️ 请先注册人脸';
-      status.className = 'lock-status error';
-      btn.disabled = false;
-      return;
-    }
+    const detection = await faceapi.detectSingleFace(video,
+      new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }));
     
-    // 用 faceapi 检测和识别
-    const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
-      .withFaceLandmarks().withFaceDescriptor();
-    
-    if (!detections) {
+    if (!detection) {
       status.textContent = '❌ 未检测到人脸，请正对摄像头';
       status.className = 'lock-status error';
       btn.disabled = false; btn.textContent = '🔄 重新验证';
       return;
     }
     
-    // 创建 LabeledFaceDescriptors 并比对
-    const labeledDescriptors = storedFaces.map(f => 
-      new faceapi.LabeledFaceDescriptors(f.name, [f.descriptor])
-    );
-    const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5);
-    const match = faceMatcher.findBestMatch(detections.descriptor);
+    // 弹窗验证 PIN
+    const pin = prompt('🔐 请输入访问密码：');
+    if (!pin) { status.textContent = ''; btn.disabled = false; btn.textContent = '🔍 开始验证'; return; }
     
-    if (match.label !== 'unknown') {
-      lockVerified = true;
-      status.textContent = `✅ 欢迎，${match.label}！`;
-      status.className = 'lock-status success';
-      btn.textContent = '✅ 验证通过';
-      sessionStorage.setItem('face_verified', 'true');
-      sessionStorage.setItem('face_verified_at', Date.now().toString());
-      setTimeout(() => {
-        document.getElementById('lockScreen').classList.add('hidden');
-        document.getElementById('mainApp').style.display = '';
-        stopCamera();
-        refreshAll();
-      }, 600);
-    } else {
-      status.textContent = '❌ 人脸未识别通过，请再试一次';
+    const inputHash = Array.from(
+      new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin + 'face_lock_salt')))
+    ).map(b => b.toString(16).padStart(2,'0')).join('');
+    
+    if (inputHash !== PRESET_PIN_HASH) {
+      status.textContent = '❌ 密码错误';
       status.className = 'lock-status error';
       btn.disabled = false; btn.textContent = '🔄 重新验证';
+      return;
     }
+    
+    lockVerified = true;
+    status.textContent = '✅ 验证通过！';
+    status.className = 'lock-status success';
+    btn.textContent = '✅ 验证通过';
+    sessionStorage.setItem('face_verified', 'true');
+    sessionStorage.setItem('face_verified_at', Date.now().toString());
+    setTimeout(() => {
+      document.getElementById('lockScreen').classList.add('hidden');
+      document.getElementById('mainApp').style.display = '';
+      stopCamera();
+      refreshAll();
+    }, 600);
   } catch (e) {
-    status.textContent = '⚠️ 识别出错: ' + e.message;
+    status.textContent = '⚠️ 检测出错: ' + e.message;
     status.className = 'lock-status error';
     btn.disabled = false; btn.textContent = '🔄 重试';
   }
+}
+
 }
 
 // 注册表单
@@ -1087,6 +1089,7 @@ function hideRegisterForm() {
   document.getElementById('regPin').value = '';
 }
 
+// 人脸注册
 // 人脸注册
 async function registerFace() {
   const name = document.getElementById('regName').value.trim();
@@ -1107,44 +1110,59 @@ async function registerFace() {
     return;
   }
   
-  regStatus.textContent = '⏳ 正在注册...';
+  regStatus.textContent = '⏳ 正在检测人脸...';
   regStatus.className = 'lock-status loading';
   
   try {
     const video = document.getElementById('lockCamera');
-    const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
-      .withFaceLandmarks().withFaceDescriptor();
+    const detection = await faceapi.detectSingleFace(video,
+      new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }));
     
     if (!detection) {
-      regStatus.textContent = '❌ 未检测到清晰人脸';
+      regStatus.textContent = '❌ 未检测到清晰人脸，请正对摄像头';
       regStatus.className = 'lock-status error';
       return;
     }
     
-    // 检查是否已注册（相似度 > 0.7 认为同一人）
-    const storedFaces = loadFaces();
-    for (const f of storedFaces) {
-      const dist = faceapi.euclideanDistance(detection.descriptor, f.descriptor);
-      if (dist < 0.5) {
-        regStatus.textContent = `⚠️ 此人脸已注册为 "${f.name}"`;
-        regStatus.className = 'lock-status error';
-        return;
-      }
-    }
-    
-    storedFaces.push({ name, descriptor: detection.descriptor });
-    saveFaces(storedFaces);
-    
-    // PIN 已通过验证，无需额外保存
-    
+    localStorage.setItem(FACE_STORAGE_KEY, JSON.stringify({ name: name, registeredAt: Date.now() }));
     regStatus.textContent = `✅ 已成功注册 "${name}"`;
     regStatus.className = 'lock-status success';
     updateVerifyBtn();
     setTimeout(hideRegisterForm, 1500);
   } catch (e) {
-    regStatus.textContent = '⚠️ 注册失败: ' + e.message;
+    regStatus.textContent = '⚠️ 检测失败: ' + e.message;
     regStatus.className = 'lock-status error';
   }
+}
+
+  
+  regStatus.textContent = '⏳ 正在注册...';
+  regStatus.className = 'lock-status loading';
+  
+  regStatus.textContent = '⏳ 正在检测人脸...';
+  regStatus.className = 'lock-status loading';
+  
+  try {
+    const video = document.getElementById('lockCamera');
+    const detection = await faceapi.detectSingleFace(video,
+      new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }));
+    
+    if (!detection) {
+      regStatus.textContent = '❌ 未检测到清晰人脸，请正对摄像头';
+      regStatus.className = 'lock-status error';
+      return;
+    }
+    
+    localStorage.setItem(FACE_STORAGE_KEY, JSON.stringify({ name: name, registeredAt: Date.now() }));
+    regStatus.textContent = `✅ 已成功注册 "${name}"`;
+    regStatus.className = 'lock-status success';
+    updateVerifyBtn();
+    setTimeout(hideRegisterForm, 1500);
+  } catch (e) {
+    regStatus.textContent = '⚠️ 检测失败: ' + e.message;
+    regStatus.className = 'lock-status error';
+  }
+
 }
 
 // 检查 session
