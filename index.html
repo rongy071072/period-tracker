@@ -1,1244 +1,253 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🌸 经期记录助手</title>
-<style>
-  :root {
-    --primary: #e91e63;
-    --primary-light: #fce4ec;
-    --primary-dark: #c2185b;
-    --bg: #fafafa;
-    --card: #ffffff;
-    --text: #333333;
-    --text-secondary: #777777;
-    --border: #eeeeee;
-    --period: #ffcdd2;
-    --period-text: #c62828;
-    --prediction: #e1bee7;
-    --prediction-text: #6a1b9a;
-    --today: #e91e63;
-    --danger: #f44336;
-    --success: #4caf50;
-    --shadow: 0 2px 12px rgba(0,0,0,0.08);
-    --radius: 12px;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-    background: linear-gradient(135deg, #fce4ec 0%, #f3e5f5 50%, #e8eaf6 100%);
-    min-height: 100vh;
-    color: var(--text);
-  }
-  .container { max-width: 860px; margin: 0 auto; padding: 24px 16px; }
-
-  /* Header */
-  .header {
-    text-align: center;
-    padding: 32px 0 24px;
-  }
-  .header h1 { font-size: 28px; font-weight: 700; color: var(--primary-dark); }
-  .header .subtitle { font-size: 14px; color: var(--text-secondary); margin-top: 4px; }
-
-  /* Stats Row */
-  .stats-row {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin-bottom: 24px;
-  }
-  .stat-card {
-    background: var(--card);
-    border-radius: var(--radius);
-    padding: 20px 16px;
-    text-align: center;
-    box-shadow: var(--shadow);
-  }
-  .stat-card .stat-value { font-size: 24px; font-weight: 700; color: var(--primary); }
-  .stat-card .stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
-  .stat-card.warning .stat-value { color: var(--danger); }
-  .stat-card.success .stat-value { color: var(--success); }
-
-  /* Main Grid */
-  .main-grid {
-    display: grid;
-    grid-template-columns: 1fr 360px;
-    gap: 20px;
-  }
-  @media (max-width: 768px) {
-    .main-grid { grid-template-columns: 1fr; }
-    .stats-row { grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .stat-card { padding: 14px 10px; }
-    .stat-card .stat-value { font-size: 20px; }
-  }
-
-  /* Card */
-  .card {
-    background: var(--card);
-    border-radius: var(--radius);
-    padding: 24px;
-    box-shadow: var(--shadow);
-  }
-  .card-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--text);
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  /* Calendar */
-  .calendar-nav {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-  }
-  .calendar-nav button {
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 6px 12px;
-    cursor: pointer;
-    font-size: 16px;
-    color: var(--text);
-    transition: all 0.2s;
-  }
-  .calendar-nav button:hover { background: var(--primary-light); border-color: var(--primary); }
-  .calendar-nav .month-label { font-size: 18px; font-weight: 600; }
-  .calendar-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
-    text-align: center;
-  }
-  .calendar-grid .day-header {
-    font-size: 12px;
-    color: var(--text-secondary);
-    font-weight: 600;
-    padding: 8px 0;
-  }
-  .calendar-grid .day {
-    aspect-ratio: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s;
-    position: relative;
-  }
-  .calendar-grid .day:hover { background: var(--primary-light); }
-  .calendar-grid .day.other-month { color: #ccc; }
-  .calendar-grid .day.other-month:hover { background: #f5f5f5; }
-  .calendar-grid .day.today { border: 2px solid var(--today); font-weight: 700; }
-  .calendar-grid .day.period-day {
-    background: var(--period);
-    color: var(--period-text);
-    font-weight: 600;
-  }
-  .calendar-grid .day.period-day:hover { background: #ef9a9a; }
-  .calendar-grid .day.predicted {
-    background: var(--prediction);
-    color: var(--prediction-text);
-    border: 1px dashed #ce93d8;
-  }
-  .calendar-grid .day.period-day.predicted {
-    background: var(--period);
-    border-color: var(--period-text);
-  }
-  .calendar-grid .day.period-start {
-    box-shadow: 0 0 0 3px rgba(233,30,99,0.3);
-  }
-
-  /* Sidebar */
-  .sidebar { display: flex; flex-direction: column; gap: 20px; }
-
-  /* Settings */
-  .setting-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 0;
-    border-bottom: 1px solid var(--border);
-  }
-  .setting-row:last-child { border-bottom: none; }
-  .setting-label { font-size: 14px; color: var(--text); }
-  .cycle-input {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .cycle-input input {
-    width: 60px;
-    padding: 8px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    text-align: center;
-    font-size: 14px;
-  }
-  .cycle-input button {
-    padding: 8px 14px;
-    background: var(--primary);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 13px;
-    transition: background 0.2s;
-  }
-  .cycle-input button:hover { background: var(--primary-dark); }
-
-  /* Buttons */
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .btn-primary {
-    background: var(--primary);
-    color: white;
-  }
-  .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(233,30,99,0.3); }
-  .btn-block { width: 100%; justify-content: center; }
-  .btn-danger {
-    background: white;
-    color: var(--danger);
-    border: 1px solid var(--danger);
-  }
-  .btn-danger:hover { background: #ffebee; }
-  .btn-sm { padding: 6px 12px; font-size: 12px; }
-
-  /* History List */
-  .history-list { max-height: 360px; overflow-y: auto; }
-  .history-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 12px;
-    border-radius: 8px;
-    margin-bottom: 6px;
-    background: var(--primary-light);
-    font-size: 14px;
-  }
-  .history-item .date { font-weight: 600; }
-  .history-item .cycle-info { font-size: 12px; color: var(--text-secondary); }
-  .history-item .delete-btn {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-size: 16px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    transition: all 0.2s;
-  }
-  .history-item .delete-btn:hover { color: var(--danger); background: #ffebee; }
-
-  .empty-state {
-    text-align: center;
-    padding: 32px 16px;
-    color: var(--text-secondary);
-    font-size: 14px;
-  }
-
-  /* Legend */
-  .legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-top: 16px;
-    font-size: 12px;
-    color: var(--text-secondary);
-  }
-  .legend-item { display: flex; align-items: center; gap: 4px; }
-  .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
-  .legend-dot.period { background: var(--period); }
-  .legend-dot.predicted { background: var(--prediction); border: 1px dashed #ce93d8; }
-  .legend-dot.today { width: 12px; height: 12px; border: 2px solid var(--today); border-radius: 50%; }
-
-  /* Modal */
-  .modal-overlay {
-    display: none;
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.4);
-    z-index: 1000;
-    align-items: center;
-    justify-content: center;
-  }
-  .modal-overlay.active { display: flex; }
-  .modal {
-    background: white;
-    border-radius: 16px;
-    padding: 24px;
-    max-width: 400px;
-    width: 90%;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-  }
-  .modal h3 { margin-bottom: 16px; font-size: 18px; }
-  .modal .date-input {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    font-size: 14px;
-    margin-bottom: 16px;
-  }
-  .modal .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
-
-  /* Toast */
-  .toast {
-    position: fixed;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #333;
-    color: white;
-    padding: 12px 24px;
-    border-radius: 8px;
-    font-size: 14px;
-    z-index: 2000;
-    animation: toastIn 0.3s ease, toastOut 0.3s ease 1.7s forwards;
-    pointer-events: none;
-  }
-  @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
-  @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
-
-  /* 注册密码弹窗 */
-  .register-modal {
-    display: none;
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 10000;
-    align-items: center;
-    justify-content: center;
-  }
-  .register-modal.active { display: flex; }
-  .register-modal .register-dialog {
-    background: white;
-    border-radius: 16px;
-    padding: 28px 24px;
-    max-width: 360px;
-    width: 90%;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-  }
-  .register-modal .register-dialog h3 {
-    font-size: 18px;
-    margin-bottom: 8px;
-    color: var(--text);
-  }
-  .register-modal .register-dialog .hint {
-    font-size: 12px;
-    color: var(--text-secondary);
-    margin-bottom: 16px;
-  }
-  .register-modal .register-dialog input {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    font-size: 14px;
-    margin-bottom: 12px;
-  }
-  .register-modal .register-dialog .dialog-actions {
-    display: flex;
-    gap: 8px;
-    justify-content: flex-end;
-  }
-
-  /* ====== 人脸识别锁屏 ====== */
-  .lock-overlay {
-    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(15, 15, 25, 0.97);
-    z-index: 9999;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .lock-overlay.hidden { display: none; }
-  .lock-card {
-    background: #1a1a2e; border-radius: 20px; padding: 32px 28px;
-    max-width: 420px; width: 92%; text-align: center;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-    color: #e0e0e0;
-  }
-  .lock-card h2 { font-size: 22px; color: #fff; margin-bottom: 4px; }
-  .lock-card .subtitle { font-size: 13px; color: #888; margin-bottom: 20px; }
-  .lock-camera-wrap {
-    position: relative; border-radius: 14px; overflow: hidden;
-    background: #000; margin-bottom: 16px; aspect-ratio: 4/3;
-  }
-  .lock-camera-wrap video, .lock-camera-wrap canvas {
-    width: 100%; height: 100%; object-fit: cover;
-  }
-  #lockCamera { transform: scaleX(-1); }
-  .lock-camera-wrap .guide-text {
-    position: absolute; bottom: 10px; left: 0; right: 0;
-    text-align: center; font-size: 12px; color: rgba(255,255,255,0.6);
-    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
-  }
-  .lock-status {
-    font-size: 13px; min-height: 20px; margin: 8px 0;
-    transition: color 0.3s;
-  }
-  .lock-status.error { color: #f44336; }
-  .lock-status.success { color: #4caf50; }
-  .lock-status.loading { color: #ff9800; }
-  .lock-btn {
-    display: block; width: 100%; padding: 14px; border: none;
-    border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer;
-    color: #fff; background: linear-gradient(135deg, #667eea, #764ba2);
-    transition: all 0.3s; margin-top: 4px;
-  }
-  .lock-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(102,126,234,0.4); }
-  .lock-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-  .lock-register-link {
-    margin: 10px 0 0;
-    font-size: 12px;
-    color: #9aa5ff;
-    cursor: pointer;
-    transition: opacity 0.2s, color 0.2s;
-  }
-  .lock-register-link:hover { color: #c3c8ff; }
-  .lock-register-link.subtle { opacity: 0.45; }
-  /* Register modal inside lock */
-  .register-form { display: none; }
-  .register-form.active { display: block; }
-  .register-form input {
-    width: 100%; padding: 12px; border: 1px solid #333; border-radius: 10px;
-    background: #12121f; color: #e0e0e0; font-size: 14px;
-    text-align: center; margin-bottom: 12px;
-  }
-  .register-form .btn-row { display: flex; gap: 8px; }
-  .register-form .btn-row button { flex: 1; }
-  .btn-outline {
-    padding: 10px; border: 1px solid #555; border-radius: 10px;
-    background: transparent; color: #aaa; font-size: 13px;
-    cursor: pointer; transition: all 0.2s;
-  }
-  .btn-outline:hover { border-color: #888; color: #fff; }
-  .btn-camera-retry {
-    position: absolute; top: 8px; right: 8px; z-index: 2;
-    background: rgba(0,0,0,0.5); border: none; border-radius: 50%;
-    width: 30px; height: 30px; color: #fff; cursor: pointer;
-    font-size: 14px; display: none;
-  }
-
-</style>
-
-
-<!-- face-api.js 从同域名加载，避免CDN被屏蔽 -->
-<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>时序 · 周期记录</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --canvas: oklch(96.8% .009 120);
+      --surface: oklch(99% .004 120);
+      --surface-muted: oklch(94.7% .012 120);
+      --ink: oklch(25% .035 142);
+      --ink-soft: oklch(42% .026 142);
+      --line: oklch(82% .017 120);
+      --moss: oklch(33% .072 143);
+      --moss-hover: oklch(27% .068 143);
+      --moss-tint: oklch(91% .027 143);
+      --terracotta: oklch(61% .105 43);
+      --terracotta-tint: oklch(91% .04 43);
+      --mist: oklch(67% .06 235);
+      --mist-tint: oklch(93% .025 235);
+      --danger: oklch(52% .17 25);
+      --success: oklch(42% .105 145);
+      --shadow: 0 5px 8px oklch(24% .03 140 / .07);
+      --radius: 12px;
+      --ease: cubic-bezier(.22, 1, .36, 1);
+      --space-1: .25rem; --space-2: .5rem; --space-3: .75rem; --space-4: 1rem;
+      --space-5: 1.5rem; --space-6: 2rem; --space-7: 3rem;
+    }
+    * { box-sizing: border-box; }
+    html { min-height: 100%; background: var(--canvas); }
+    body { min-width: 320px; min-height: 100vh; margin: 0; background: var(--canvas); color: var(--ink); font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 1rem; line-height: 1.5; }
+    button, input { font: inherit; }
+    button { border: 0; }
+    button, a, input { -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid oklch(61% .11 235); outline-offset: 3px; }
+    .skip-link { position: fixed; z-index: 10; left: 1rem; top: -5rem; padding: .75rem 1rem; background: var(--moss); color: #fff; border-radius: 0 0 8px 8px; transition: top 180ms var(--ease); }
+    .skip-link:focus { top: 0; }
+    .app { width: min(100% - 2rem, 1320px); margin: 0 auto; padding: 1.25rem 0 3rem; }
+    .topbar { display: flex; align-items: center; min-height: 62px; border-bottom: 1px solid var(--line); gap: var(--space-4); }
+    .brand { color: var(--moss); text-decoration: none; font-family: Georgia, "Songti SC", serif; font-size: 2rem; font-weight: 700; letter-spacing: .08em; line-height: 1; }
+    .top-actions { display: flex; align-items: center; gap: .75rem; margin-left: auto; }
+    .context-switcher, .quiet-button, .month-button, .record-row { background: transparent; color: var(--ink); cursor: pointer; }
+    .context-switcher { display: inline-flex; align-items: center; gap: .5rem; max-width: 330px; padding: .6rem .75rem; border-radius: 8px; color: var(--ink-soft); font-size: .9rem; text-align: left; }
+    .context-switcher:hover { background: var(--moss-tint); color: var(--ink); }
+    .person-dot { display: inline-grid; width: 28px; height: 28px; place-items: center; flex: 0 0 auto; border-radius: 50%; background: var(--moss); color: #fff; font-size: .72rem; font-weight: 700; }
+    .quiet-button { min-height: 42px; padding: .55rem .8rem; border: 1px solid var(--line); border-radius: 8px; transition: background 180ms var(--ease), border-color 180ms var(--ease); }
+    .quiet-button:hover { background: var(--surface-muted); border-color: var(--ink-soft); }
+    .profile-initial { display: grid; width: 40px; height: 40px; place-items: center; border-radius: 50%; background: var(--surface-muted); color: var(--moss); font-size: .8rem; font-weight: 700; text-decoration: none; }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(296px, 360px); gap: clamp(1.5rem, 4vw, 4rem); padding-top: clamp(2rem, 5vw, 4.5rem); }
+    .main-column { min-width: 0; }
+    .heading-block { display: grid; gap: .35rem; margin-bottom: var(--space-6); }
+    .heading-block h1 { margin: 0; max-width: 24ch; font-family: Georgia, "Songti SC", serif; font-size: 2.25rem; line-height: 1.15; letter-spacing: -.02em; text-wrap: balance; }
+    .heading-block p { margin: 0; color: var(--ink-soft); }
+    .calendar-head { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; padding-bottom: 1rem; border-bottom: 1px solid var(--line); }
+    .calendar-head h2 { margin: 0; text-align: center; font-family: Georgia, "Songti SC", serif; font-size: 1.35rem; }
+    .month-button { display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid var(--line); border-radius: 8px; font-size: 1.45rem; line-height: 1; transition: background 180ms var(--ease), transform 180ms var(--ease); }
+    .month-button:hover { background: var(--surface-muted); transform: translateY(-1px); }
+    .calendar { margin-top: .65rem; }
+    .weekdays, .days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+    .weekdays { color: var(--ink-soft); font-size: .8rem; font-weight: 650; text-align: center; }
+    .weekdays span { padding: .55rem 0; }
+    .days { border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+    .calendar-day { position: relative; min-height: 78px; padding: .55rem; overflow: hidden; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; text-align: left; transition: background 180ms var(--ease); }
+    .calendar-day:hover { background: var(--surface-muted); }
+    .calendar-day.is-other { color: oklch(67% .012 120); background: oklch(97% .006 120); }
+    .calendar-day .date-number { position: relative; z-index: 1; display: inline-grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; font-size: .9rem; font-variant-numeric: tabular-nums; }
+    .calendar-day.is-today .date-number { border: 2px solid var(--moss); font-weight: 750; }
+    .calendar-day.is-period { background: var(--terracotta-tint); }
+    .calendar-day.is-period::after { content: ""; position: absolute; inset: 9px; border-radius: 5px; background: var(--terracotta); opacity: .88; }
+    .calendar-day.is-period .date-number { color: #fff; font-weight: 750; }
+    .calendar-day.is-predicted { background: var(--mist-tint); }
+    .calendar-day.is-predicted::after { content: ""; position: absolute; inset: 8px; border: 1.5px dashed var(--mist); border-radius: 5px; }
+    .calendar-day.is-period.is-predicted::after { border-color: var(--terracotta); }
+    .legend { display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; margin-top: 1rem; color: var(--ink-soft); font-size: .86rem; }
+    .legend-item { display: inline-flex; align-items: center; gap: .5rem; }
+    .key { width: 13px; height: 13px; border-radius: 3px; }
+    .key.actual { background: var(--terracotta); } .key.predicted { border: 1.5px dashed var(--mist); } .key.today { border: 2px solid var(--moss); border-radius: 50%; }
+    .history { margin-top: clamp(2.25rem, 5vw, 4rem); }
+    .section-title { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: .75rem; }
+    .section-title h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 1.25rem; }
+    .section-title button { color: var(--moss); background: none; cursor: pointer; font-size: .88rem; text-decoration: underline; text-underline-offset: .2em; }
+    .record-list { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+    .record-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; width: 100%; min-height: 58px; padding: .8rem 1rem; border-bottom: 1px solid var(--line); text-align: left; }
+    .record-row:last-child { border-bottom: 0; }
+    .record-row:hover { background: var(--terracotta-tint); }
+    .record-marker { width: 10px; height: 10px; margin-right: .85rem; border-radius: 50%; background: var(--terracotta); }
+    .record-meta { color: var(--ink-soft); font-size: .86rem; }
+    .arrow { color: var(--ink-soft); font-size: 1.25rem; }
+    .side-column { display: grid; align-content: start; gap: 1.5rem; }
+    .primary-button { min-height: 62px; padding: 1rem 1.25rem; background: var(--moss); color: #fff; border-radius: 9px; cursor: pointer; font-weight: 750; font-size: 1.05rem; letter-spacing: .01em; box-shadow: var(--shadow); transition: background 180ms var(--ease), transform 140ms var(--ease); }
+    .primary-button:hover { background: var(--moss-hover); transform: translateY(-1px); }
+    .primary-button:active { transform: translateY(1px) scale(.99); }
+    .primary-button:disabled, .quiet-button:disabled { cursor: not-allowed; opacity: .55; }
+    .panel { padding: 1.25rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+    .panel h2 { margin: 0 0 .8rem; font-family: Georgia, "Songti SC", serif; font-size: 1.1rem; }
+    .period-date { margin: .35rem 0; color: var(--mist); font-size: 1.5rem; font-weight: 750; font-variant-numeric: tabular-nums; }
+    .panel p { margin: .35rem 0; color: var(--ink-soft); font-size: .92rem; }
+    .panel .fine-print { margin-top: 1rem; font-size: .8rem; line-height: 1.6; }
+    .shared-head { display: flex; align-items: center; gap: .65rem; }
+    .shared-head h2 { margin-bottom: 0; }
+    .permission-tag { display: inline-flex; padding: .18rem .45rem; border-radius: 999px; background: var(--moss-tint); color: var(--moss); font-size: .75rem; font-weight: 700; }
+    .panel-link { display: inline-flex; margin-top: .85rem; padding: 0; background: none; color: var(--moss); cursor: pointer; font-size: .88rem; text-decoration: underline; text-underline-offset: .2em; }
+    .settings-list { margin: 0; padding: 0; list-style: none; }
+    .settings-list button { display: grid; grid-template-columns: 1fr auto auto; width: 100%; padding: .8rem 0; border-bottom: 1px solid var(--line); background: none; color: var(--ink); cursor: pointer; text-align: left; }
+    .settings-list li:last-child button { border-bottom: 0; padding-bottom: 0; }
+    .settings-list span { color: var(--ink-soft); } .settings-list strong { margin-right: .6rem; font-size: .92rem; font-variant-numeric: tabular-nums; }
+    .privacy { display: flex; gap: .65rem; color: var(--ink-soft); font-size: .8rem; line-height: 1.6; }
+    .privacy b { color: var(--moss); }
+    .loading { display: grid; gap: .75rem; }
+    .skeleton { height: 1rem; border-radius: 4px; background: var(--surface-muted); animation: shimmer 1.5s infinite; }
+    .skeleton.wide { width: 80%; height: 2rem; } .skeleton.short { width: 46%; }
+    @keyframes shimmer { 50% { opacity: .45; } }
+    .notice { margin: 1.5rem 0; padding: 1rem; border-radius: 8px; background: var(--terracotta-tint); color: oklch(32% .07 38); }
+    .empty { padding: 1.5rem; color: var(--ink-soft); text-align: center; }
+    dialog { width: min(100% - 2rem, 500px); max-height: min(760px, calc(100vh - 2rem)); padding: 0; border: 0; border-radius: 14px; color: var(--ink); background: var(--surface); box-shadow: 0 18px 55px oklch(22% .03 140 / .2); }
+    dialog::backdrop { background: oklch(18% .02 140 / .36); }
+    .dialog-body { padding: 1.5rem; }
+    .dialog-title { display: flex; justify-content: space-between; align-items: start; gap: 1rem; margin-bottom: 1.5rem; }
+    .dialog-title h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 1.35rem; }
+    .close-button { display: grid; width: 40px; height: 40px; place-items: center; flex: 0 0 auto; background: var(--surface-muted); color: var(--ink); border-radius: 50%; cursor: pointer; font-size: 1.25rem; }
+    .form-grid { display: grid; gap: 1rem; }
+    label { display: grid; gap: .45rem; color: var(--ink-soft); font-size: .88rem; font-weight: 650; }
+    input, select { width: 100%; min-height: 46px; padding: .65rem .75rem; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); }
+    input:focus, select:focus { border-color: var(--moss); outline: 0; }
+    .field-error { margin: -.35rem 0 0; color: var(--danger); font-size: .82rem; }
+    .dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .65rem; margin-top: 1.5rem; }
+    .danger-button { min-height: 42px; padding: .55rem .8rem; border: 1px solid var(--danger); border-radius: 8px; background: transparent; color: var(--danger); cursor: pointer; }
+    .share-list { display: grid; gap: .5rem; margin-top: 1rem; }
+    .share-row { display: grid; grid-template-columns: 1fr auto; gap: .75rem; align-items: center; padding: .8rem 0; border-bottom: 1px solid var(--line); }
+    .share-row:last-child { border-bottom: 0; }
+    .share-row strong, .share-row span { display: block; } .share-row span { color: var(--ink-soft); font-size: .84rem; }
+    .toast { position: fixed; z-index: 5; bottom: max(1rem, env(safe-area-inset-bottom)); left: 50%; padding: .75rem 1rem; border-radius: 8px; background: var(--ink); color: #fff; box-shadow: var(--shadow); transform: translate(-50%, 120%); opacity: 0; transition: transform 220ms var(--ease), opacity 220ms var(--ease); }
+    .toast.is-visible { transform: translate(-50%, 0); opacity: 1; }
+    .auth-state { width: min(100% - 2rem, 600px); margin: 12vh auto; padding: 2rem; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); text-align: center; }
+    .auth-state h1 { margin: 0 0 .5rem; font-family: Georgia, "Songti SC", serif; } .auth-state p { color: var(--ink-soft); }
+    .auth-state .primary-button { margin-top: .75rem; }
+    @media (max-width: 860px) { .workspace { grid-template-columns: 1fr; } .side-column { grid-template-columns: repeat(2, minmax(0, 1fr)); } .side-column > :first-child { grid-column: 1 / -1; } }
+    @media (max-width: 620px) { .app { width: min(100% - 1rem, 1320px); padding-top: .5rem; } .topbar { min-height: 56px; } .brand { font-size: 1.55rem; } .context-switcher { max-width: 155px; padding: .45rem; } .context-switcher span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .quiet-button { width: 42px; padding: 0; overflow: hidden; white-space: nowrap; color: transparent; } .quiet-button::after { content: "管理"; color: var(--ink); font-size: .76rem; } .profile-initial { display: none; } .workspace { gap: 2rem; padding-top: 2rem; } .heading-block h1 { font-size: 1.85rem; } .calendar-day { min-height: 54px; padding: .3rem; } .calendar-day.is-period::after, .calendar-day.is-predicted::after { inset: 4px; } .calendar-day .date-number { width: 28px; height: 28px; font-size: .82rem; } .side-column { grid-template-columns: 1fr; gap: 1rem; } .side-column > :first-child { grid-column: auto; } .panel { padding: 1rem; } .record-row { padding: .7rem .8rem; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+  </style>
 </head>
 <body>
+  <a class="skip-link" href="#main-content">跳到主要内容</a>
+  <main id="app" class="app" aria-live="polite"></main>
+  <dialog id="record-dialog"></dialog><dialog id="settings-dialog"></dialog><dialog id="share-dialog"></dialog>
+  <div id="toast" class="toast" role="status"></div>
+  <script>
+    const CONFIG = window.PERIOD_TRACKER_CONFIG || {};
+    const API_BASE = (CONFIG.apiBaseUrl || '/api').replace(/\/$/, '');
+    const HOME_URL = CONFIG.homeUrl || '/';
+    const app = document.querySelector('#app');
+    const dialogs = { record: document.querySelector('#record-dialog'), settings: document.querySelector('#settings-dialog'), share: document.querySelector('#share-dialog') };
+    const state = { month: new Date(), calendar: null, shares: { createdByMe: [], sharedWithMe: [] }, shareId: '', loading: true, error: '' };
 
-<div class="lock-overlay" id="lockScreen">
-  <div class="lock-card">
-    <h2>🔒 身份验证</h2>
-    <p class="subtitle" id="lockSubtitle">加载人脸识别模型...</p>
-    
-    <div class="lock-camera-wrap">
-      <video id="lockCamera" autoplay playsinline muted></video>
-      <canvas id="lockCanvas" style="display:none"></canvas>
-      <div class="guide-text" id="cameraHint">正在初始化...</div>
-    </div>
-    
-    <button class="lock-btn" id="verifyBtn" onclick="verifyFace()">🔍 验证身份</button>
-    <p class="lock-register-link" id="lockRegisterLink" onclick="showRegisterForm()">未录入人脸？点击注册</p>
-    <p class="lock-status" id="lockStatus"></p>
-    
-    
-    <div class="register-form" id="registerForm">
-      <input type="text" id="regName" placeholder="输入姓名" maxlength="15">
-      <div class="btn-row">
-        <button class="btn-outline" onclick="hideRegisterForm()">返回</button>
-        <button class="lock-btn" id="captureBtn" style="margin-top:0;font-size:13px;" onclick="captureRegisterPhoto()">📸 拍照</button>
-      </div>
-      <div class="btn-row" id="confirmRegisterRow" style="display:none;margin-top:8px;">
-        <button class="btn-outline" onclick="retakeRegisterPhoto()">🔄 重拍</button>
-        <button class="lock-btn" style="margin-top:0;font-size:13px;" onclick="registerFace()">✅ 确认注册</button>
-      </div>
-      <p class="lock-status" id="regStatus"></p>
-    </div>
-  </div>
-</div>
-
-
-<!-- 注册密码弹窗 -->
-
-<div class="container" id="mainApp" style="display:none;">
-  <div class="header">
-    <h1>🌸 经期记录助手</h1>
-    <p class="subtitle">记录周期 · 掌握规律 · 从容生活</p>
-  </div>
-
-  <div class="stats-row" id="statsRow"></div>
-
-  <div class="main-grid">
-    <div class="card" id="calendarCard">
-      <div class="calendar-nav">
-        <button onclick="prevMonth()">◀</button>
-        <span class="month-label" id="monthLabel"></span>
-        <button onclick="nextMonth()">▶</button>
-      </div>
-      <div class="calendar-grid" id="calendarGrid"></div>
-      <div class="legend">
-        <div class="legend-item"><span class="legend-dot period"></span> 经期</div>
-        <div class="legend-item"><span class="legend-dot predicted"></span> 预测经期</div>
-        <div class="legend-item"><span class="legend-dot today"></span> 今天</div>
-      </div>
-    </div>
-
-    <div class="sidebar">
-      <div class="card">
-        <div class="card-title">📝 操作</div>
-        <div style="margin-bottom: 12px;">
-          <button class="btn btn-primary btn-block" onclick="recordToday()">
-            🔴  记录今天为经期首日
-          </button>
-        </div>
-        <button class="btn btn-primary btn-block" style="background:#ab47bc;" onclick="openDatePicker()">
-          📅 选择日期记录
-        </button>
-      </div>
-
-      <div class="card">
-        <div class="card-title">⚙️ 设置</div>
-        <div class="setting-row">
-          <span class="setting-label">周期天数</span>
-          <div class="cycle-input">
-            <input type="number" id="cycleLengthInput" min="20" max="45" value="28">
-            <button onclick="updateCycleLength()">保存</button>
+    function userInfo() { try { return JSON.parse(localStorage.getItem('userInfo') || 'null'); } catch { return null; } }
+    function token() { return userInfo()?.token || ''; }
+    function initials(value) { return (value || '我').trim().slice(0, 2).toUpperCase(); }
+    function isoDate(date) { return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-'); }
+    function monthParam(date) { return isoDate(date).slice(0, 7); }
+    function formatDate(date) { return new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric' }).format(new Date(date + 'T00:00:00')); }
+    function formatRange(start, end) { return end ? `${formatDate(start)} 至 ${formatDate(end)}` : formatDate(start); }
+    function dayDiff(start, end) { return Math.round((new Date(end + 'T00:00:00') - new Date(start + 'T00:00:00')) / 86400000); }
+    function escapeHtml(value = '') { return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]); }
+    function accountUrl() { const target = new URL(HOME_URL, window.location.href); target.searchParams.set('account', '1'); return target.toString(); }
+    function query(shareId = state.shareId) { return shareId ? `?shareId=${encodeURIComponent(shareId)}` : ''; }
+    function apiUrl(path, params) { const suffix = params ? `?${new URLSearchParams(params).toString()}` : ''; return `${API_BASE}${path}${suffix}`; }
+    async function request(path, options = {}) {
+      const response = await fetch(`${API_BASE}${path}`, { ...options, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}`, ...(options.headers || {}) } });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 401 || Number(payload.code) === 401) { localStorage.removeItem('userInfo'); throw new Error('登录已过期，请返回 Shinra-Hub 重新登录。'); }
+      if (!response.ok || (payload.code !== undefined && Number(payload.code) !== 200)) throw new Error(payload.message || '请求未能完成，请稍后重试。');
+      return payload.data ?? payload;
+    }
+    function renderAuthState() {
+      app.innerHTML = `<section class="auth-state"><h1>需要统一账户登录</h1><p>时序会复用 Shinra-Hub 的登录状态，不单独保存账号或密码。</p><button class="primary-button" id="go-home">返回 Shinra-Hub 登录</button></section>`;
+      document.querySelector('#go-home').onclick = () => location.assign(HOME_URL);
+    }
+    function activeShare() { return state.shares.sharedWithMe.find(item => item.id === state.shareId); }
+    function profile() { return state.calendar?.profile || { cycleLength: 28, defaultPeriodDays: 7 }; }
+    function actualPeriods() { return state.calendar?.actualPeriods || []; }
+    function isInRange(day, start, end, days) { const endDate = end || isoDate(new Date(new Date(start + 'T00:00:00').getTime() + ((days || 7) - 1) * 86400000)); return day >= start && day <= endDate; }
+    function render() {
+      if (!token()) return renderAuthState();
+      const me = userInfo() || {}; const share = activeShare(); const summary = state.calendar?.summary || {};
+      const title = state.loading ? '正在整理周期信息' : summary.nextPredictedStartDate ? `下一次预计在 ${formatDate(summary.nextPredictedStartDate)}` : '从第一次记录开始';
+      app.innerHTML = `
+        <header class="topbar"><a class="brand" href="${escapeHtml(HOME_URL)}" aria-label="返回 Shinra-Hub">时序</a>
+          <div class="top-actions"><button class="context-switcher" id="context-button" aria-label="切换查看的周期数据"><span class="person-dot">${initials(share?.ownerName || me.name || me.email)}</span><span>${share ? `正在编辑 ${escapeHtml(share.ownerName || share.ownerEmail)} 的周期` : '我的周期记录'}</span></button><a class="profile-initial" href="${escapeHtml(accountUrl())}" target="_blank" rel="noopener noreferrer" aria-label="在新标签页打开 Shinra-Hub 统一账户">${initials(me.name || me.email)}</a><button class="quiet-button" id="share-button">共同编辑管理</button></div>
+        </header>
+        <section id="main-content" class="workspace">
+          <div class="main-column">
+            <div class="heading-block"><h1>${title}</h1><p>${state.loading ? '正在加载真实记录…' : summary.lastPeriodStartDate ? `最近一次记录在 ${formatDate(summary.lastPeriodStartDate)}，当前按 ${summary.averageCycleDays || profile().cycleLength} 天周期计算。预测日期仅供日常参考。 ` : '记录一次经期首日后，这里会展示预测日期与周期历史。'}</p></div>
+            ${state.error ? `<div class="notice">${escapeHtml(state.error)} <button class="panel-link" id="retry-button">重新加载</button></div>` : ''}
+            ${state.loading ? '<div class="loading"><div class="skeleton wide"></div><div class="skeleton"></div><div class="skeleton short"></div></div>' : calendarHtml()}
           </div>
-        </div>
-        <div class="setting-row">
-          <span class="setting-label">经期持续天数</span>
-          <div class="cycle-input">
-            <input type="number" id="periodDaysInput" min="2" max="10" value="7">
-            <button onclick="updatePeriodDays()">保存</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">📋 历史记录</div>
-        <div class="history-list" id="historyList">
-          <div class="empty-state">暂无记录，点击上方按钮开始记录</div>
-        </div>
-        <div style="margin-top: 12px; display: flex; gap: 8px;">
-          <button class="btn btn-sm btn-danger" onclick="clearAll()">清空记录</button>
-          <button class="btn btn-sm" style="background:#f5f5f5;border:1px solid #ddd;" onclick="exportData()">导出数据</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Date Picker Modal -->
-<div class="modal-overlay" id="modal">
-  <div class="modal">
-    <h3>选择经期首日日期</h3>
-    <input type="date" class="date-input" id="datePicker">
-    <div class="modal-actions">
-      <button class="btn btn-sm" style="background:#f5f5f5;border:1px solid #ddd;" onclick="closeModal()">取消</button>
-      <button class="btn btn-sm btn-primary" onclick="confirmDate()">确认记录</button>
-    </div>
-  </div>
-</div>
-
-<div class="toast" id="toast" style="display:none;"></div>
-
-<script>
-// ==================== DATA LAYER ====================
-const STORAGE_KEY = 'period-tracker-data';
-
-function loadData() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (e) {}
-  return { periods: ["2019-01-13", "2019-02-20", "2019-03-25", "2019-04-26", "2019-05-24", "2019-07-05", "2019-08-15", "2019-09-11", "2019-10-11", "2019-11-12", "2019-12-10", "2020-01-05", "2020-02-07", "2020-03-04", "2020-04-04", "2020-05-05", "2020-06-07", "2020-07-04", "2020-08-06", "2020-09-02", "2020-10-01", "2020-10-30", "2020-12-08", "2021-01-04", "2021-01-29", "2021-02-25", "2021-03-26", "2021-04-24", "2021-05-22", "2021-06-20", "2021-07-17", "2021-08-18", "2021-09-14", "2021-10-13", "2021-11-09", "2021-12-07", "2022-01-06", "2022-02-07", "2022-03-06", "2022-04-03", "2022-04-29", "2022-05-31", "2022-07-30", "2022-08-31", "2022-10-28", "2022-11-25", "2022-12-20", "2023-01-18", "2023-02-12", "2023-03-13", "2023-04-08", "2023-05-06", "2023-06-05", "2023-07-02", "2023-08-04", "2023-09-12", "2023-10-10", "2023-11-16", "2023-12-23", "2024-01-28", "2024-02-27", "2024-03-28", "2024-04-23", "2024-05-25", "2024-06-21", "2024-07-25", "2024-08-24", "2024-09-25", "2024-10-23", "2024-11-19", "2024-12-25", "2025-01-19", "2025-02-16", "2025-03-22", "2025-04-20", "2025-05-17", "2025-06-16", "2025-07-13", "2025-08-16", "2025-09-13", "2025-10-10", "2025-11-17", "2025-12-19", "2026-01-13", "2026-02-11", "2026-03-10", "2026-04-08", "2026-05-05", "2026-06-04", "2026-07-01", "2026-07-29"], cycleLength: 28, periodDays: 7 };
-}
-
-function saveData(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-let appData = loadData();
-
-// Periodic dates are stored as YYYY-MM-DD strings, sorted ascending
-function sortedPeriods() {
-  return [...appData.periods].sort((a, b) => a.localeCompare(b));
-}
-
-// ==================== TOAST ====================
-let toastTimer;
-function showToast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.style.display = 'block';
-  el.style.animation = 'none';
-  el.offsetHeight;
-  el.style.animation = 'toastIn 0.3s ease, toastOut 0.3s ease 1.7s forwards';
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.style.display = 'none'; }, 2000);
-}
-
-// ==================== CALENDAR ====================
-let calYear, calMonth;
-
-function initCalendar() {
-  const today = new Date();
-  calYear = today.getFullYear();
-  calMonth = today.getMonth(); // 0-based
-  renderCalendar();
-}
-
-function prevMonth() {
-  calMonth--;
-  if (calMonth < 0) { calMonth = 11; calYear--; }
-  renderCalendar();
-}
-
-function nextMonth() {
-  calMonth++;
-  if (calMonth > 11) { calMonth = 0; calYear++; }
-  renderCalendar();
-}
-
-function renderCalendar() {
-  const monthLabel = document.getElementById('monthLabel');
-  monthLabel.textContent = `${calYear}年 ${calMonth + 1}月`;
-
-  const grid = document.getElementById('calendarGrid');
-  const headers = ['日', '一', '二', '三', '四', '五', '六'];
-
-  const startDate = new Date(calYear, calMonth, 1);
-  const startDay = startDate.getDay(); // 0=Sun
-  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-  const daysInPrevMonth = new Date(calYear, calMonth, 0).getDate();
-
-  const today = new Date();
-  const todayStr = formatDate(today);
-
-  const periods = sortedPeriods();
-  const cycleLen = appData.cycleLength;
-  const pdLen = appData.periodDays;
-
-  // Build period date set for current month display
-  const periodSet = new Set();
-  const predictedSet = new Set();
-  const predictedTypes = {}; // 'predicted' or 'period'
-
-  // Mark actual period days
-  for (const pStart of periods) {
-    const start = new Date(pStart + 'T00:00:00');
-    for (let i = 0; i < pdLen; i++) {
-      const d = new Date(start);
-      d.setDate(d.getDate() + i);
-      const dStr = formatDate(d);
-      if (d.getMonth() === calMonth && d.getFullYear() === calYear) {
-        periodSet.add(dStr);
-        predictedTypes[dStr] = 'period';
-      }
+          <aside class="side-column">
+            <button class="primary-button" id="record-today" ${state.loading ? 'disabled' : ''}>记录今天为首日</button>
+            ${state.loading ? '<div class="panel loading"><div class="skeleton short"></div><div class="skeleton wide"></div></div>' : sideHtml(share)}
+          </aside>
+        </section>`;
+      bindPageEvents();
     }
-  }
-
-  // Mark predicted days (next period)
-  if (periods.length > 0) {
-    const lastPeriod = periods[periods.length - 1];
-    const nextStart = new Date(lastPeriod + 'T00:00:00');
-    nextStart.setDate(nextStart.getDate() + cycleLen);
-    // Show prediction for current month if it falls within
-    for (let i = 0; i < pdLen; i++) {
-      const d = new Date(nextStart);
-      d.setDate(d.getDate() + i);
-      const dStr = formatDate(d);
-      if (d.getMonth() === calMonth && d.getFullYear() === calYear && !periodSet.has(dStr)) {
-        predictedSet.add(dStr);
-        predictedTypes[dStr] = 'predicted';
-      }
+    function calendarHtml() {
+      const current = state.month; const year = current.getFullYear(); const month = current.getMonth();
+      const first = new Date(year, month, 1); const start = new Date(year, month, 1 - first.getDay()); const today = isoDate(new Date());
+      let cells = '';
+      for (let index = 0; index < 42; index++) { const date = new Date(start); date.setDate(start.getDate() + index); const day = isoDate(date); const actual = actualPeriods().find(item => isInRange(day, item.startDate, item.endDate, item.periodDays)); const predicted = (state.calendar?.predictedPeriods || []).find(item => isInRange(day, item.startDate, item.endDate, item.periodDays)); const classes = ['calendar-day']; if (date.getMonth() !== month) classes.push('is-other'); if (day === today) classes.push('is-today'); if (actual) classes.push('is-period'); if (predicted) classes.push('is-predicted'); cells += `<button class="${classes.join(' ')}" data-date="${day}" data-record-id="${actual?.id || ''}" aria-label="${day}${actual ? '，真实经期记录' : predicted ? '，预测经期' : '，记录经期首日'}"><span class="date-number">${date.getDate()}</span></button>`; }
+      const history = state.calendar?.history || [];
+      return `<section aria-labelledby="calendar-title"><div class="calendar-head"><button class="month-button" id="prev-month" aria-label="上一个月">‹</button><h2 id="calendar-title">${year} 年 ${month + 1} 月</h2><button class="month-button" id="next-month" aria-label="下一个月">›</button></div><div class="calendar"><div class="weekdays"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div><div class="days">${cells}</div></div><div class="legend"><span class="legend-item"><i class="key actual"></i>真实经期</span><span class="legend-item"><i class="key predicted"></i>预测经期</span><span class="legend-item"><i class="key today"></i>今天</span></div></section>
+        <section class="history" aria-labelledby="history-title"><div class="section-title"><h2 id="history-title">最近记录</h2></div><div class="record-list">${history.length ? history.map(item => `<button class="record-row" data-record-id="${item.id}"><i class="record-marker"></i><span>${formatDate(item.startDate)} · 持续 ${item.periodDays} 天 ${item.daysSincePrevious ? `<small class="record-meta">距上次 ${item.daysSincePrevious} 天</small>` : ''}</span><span class="arrow">›</span></button>`).join('') : '<div class="empty">还没有记录。点击“记录今天为首日”即可开始。</div>'}</div></section>`;
     }
-  }
-
-  let html = headers.map(h => `<div class="day-header">${h}</div>`).join('');
-
-  // Previous month tail
-  for (let i = startDay - 1; i >= 0; i--) {
-    const d = daysInPrevMonth - i;
-    const dStr = formatDate(new Date(calYear, calMonth - 1, d));
-    html += `<div class="day other-month">${d}</div>`;
-  }
-
-  // Current month
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dStr = formatDate(new Date(calYear, calMonth, d));
-    const classes = ['day'];
-    if (dStr === todayStr) classes.push('today');
-    if (periodSet.has(dStr)) {
-      classes.push('period-day');
-      // Mark day 1 of each period as start
-      const dayDate = new Date(calYear, calMonth, d);
-      const isPeriodStart = periods.some(ps => {
-        const start = new Date(ps + 'T00:00:00');
-        return start.getTime() === dayDate.getTime();
-      });
-      if (isPeriodStart) classes.push('period-start');
+    function sideHtml(share) {
+      const summary = state.calendar?.summary || {}; const p = profile();
+      return `<section class="panel"><h2>下次经期（预测）</h2><p class="period-date">${summary.nextPredictedStartDate ? formatRange(summary.nextPredictedStartDate, isoDate(new Date(new Date(summary.nextPredictedStartDate + 'T00:00:00').getTime() + (p.defaultPeriodDays - 1) * 86400000))) : '等待记录'}</p><p>${summary.daysUntilNextPeriod == null ? '记录首日后即可计算。' : summary.daysUntilNextPeriod >= 0 ? `预计还有 ${summary.daysUntilNextPeriod} 天` : `预计日期已过去 ${Math.abs(summary.daysUntilNextPeriod)} 天`}</p><p class="fine-print">预测基于历史记录与当前周期设置，不代表医疗建议。</p></section>
+        <section class="panel"><div class="shared-head"><h2>${share ? '共同编辑中' : '共同编辑'}</h2><span class="permission-tag">${share ? '可查看和编辑' : '未共享'}</span></div><p>${share ? `你正在与 ${escapeHtml(share.ownerName || share.ownerEmail)} 共同维护这份周期记录。你们都可以查看和编辑。 ` : '你可以邀请已注册的伴侣共同查看和编辑周期记录。'}</p><button class="panel-link" id="manage-share-link">管理共同编辑</button></section>
+        <section class="panel"><h2>周期设置</h2><ul class="settings-list"><li><button id="open-settings"><span>平均周期长度</span><strong>${p.cycleLength} 天</strong><b>›</b></button></li><li><button id="open-settings-duration"><span>经期持续天数</span><strong>${p.defaultPeriodDays} 天</strong><b>›</b></button></li><li><button id="open-settings-prediction"><span>预测方式</span><strong>${p.predictionMode === 'AVERAGE' ? '按历史平均' : '按设定周期'}</strong><b>›</b></button></li></ul></section>
+        <p class="privacy"><b>◇</b><span>周期数据仅在你选择共同编辑后向指定用户开放。</span></p>`;
     }
-    if (predictedSet.has(dStr) && !periodSet.has(dStr)) classes.push('predicted');
-    html += `<div class="${classes.join(' ')}" onclick="onDayClick('${dStr}')">${d}</div>`;
-  }
-
-  // Next month head
-  const totalCells = startDay + daysInMonth;
-  const remaining = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
-  for (let d = 1; d <= remaining; d++) {
-    html += `<div class="day other-month">${d}</div>`;
-  }
-
-  grid.innerHTML = html;
-}
-
-function formatDate(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-function onDayClick(dateStr) {
-  const periods = sortedPeriods();
-  if (periods.includes(dateStr)) {
-    if (confirm(`确定要删除 ${dateStr} 的经期记录吗？`)) {
-      removePeriod(dateStr);
+    function bindPageEvents() {
+      document.querySelector('#retry-button')?.addEventListener('click', load);
+      document.querySelector('#record-today')?.addEventListener('click', () => openRecordDialog({ startDate: isoDate(new Date()) }));
+      document.querySelector('#prev-month')?.addEventListener('click', () => { state.month = new Date(state.month.getFullYear(), state.month.getMonth() - 1, 1); loadCalendar(); });
+      document.querySelector('#next-month')?.addEventListener('click', () => { state.month = new Date(state.month.getFullYear(), state.month.getMonth() + 1, 1); loadCalendar(); });
+      document.querySelectorAll('[data-date]').forEach(button => button.addEventListener('click', () => button.dataset.recordId ? openRecordById(button.dataset.recordId) : openRecordDialog({ startDate: button.dataset.date })));
+      document.querySelectorAll('[data-record-id]').forEach(button => { if (button.classList.contains('record-row')) button.addEventListener('click', () => openRecordById(button.dataset.recordId)); });
+      document.querySelector('#open-settings')?.addEventListener('click', openSettingsDialog); document.querySelector('#open-settings-duration')?.addEventListener('click', openSettingsDialog); document.querySelector('#open-settings-prediction')?.addEventListener('click', openSettingsDialog);
+      document.querySelector('#share-button')?.addEventListener('click', openShareDialog); document.querySelector('#manage-share-link')?.addEventListener('click', openShareDialog); document.querySelector('#context-button')?.addEventListener('click', openShareDialog);
     }
-  } else {
-    if (confirm(`将 ${dateStr} 记录为经期首日？`)) {
-      addPeriod(dateStr);
+    function openDialog(dialog, content) { dialog.innerHTML = content; dialog.showModal(); dialog.querySelector('[data-close]')?.addEventListener('click', () => dialog.close()); }
+    function openRecordDialog(record = {}) {
+      const isEdit = Boolean(record.id); const maxDate = isoDate(new Date());
+      openDialog(dialogs.record, `<form class="dialog-body" id="record-form"><div class="dialog-title"><h2>${isEdit ? '编辑经期记录' : '记录经期首日'}</h2><button type="button" class="close-button" data-close aria-label="关闭">×</button></div><div class="form-grid"><label>经期首日<input name="startDate" type="date" max="${maxDate}" value="${record.startDate || maxDate}" required></label><label>持续天数<input name="periodDays" type="number" min="2" max="10" value="${record.periodDays || profile().defaultPeriodDays}" required></label><label>备注（可选）<input name="remark" maxlength="500" value="${escapeHtml(record.remark || '')}"></label><p class="field-error" id="record-error" hidden></p></div><div class="dialog-actions">${isEdit ? '<button class="danger-button" type="button" id="delete-record">删除记录</button>' : ''}<button class="quiet-button" type="button" data-close>取消</button><button class="primary-button" type="submit">${isEdit ? '保存记录' : '添加记录'}</button></div></form>`);
+      dialogs.record.querySelector('[data-close]')?.addEventListener('click', () => dialogs.record.close());
+      dialogs.record.querySelector('#record-form').addEventListener('submit', async event => { event.preventDefault(); const data = Object.fromEntries(new FormData(event.currentTarget)); data.periodDays = Number(data.periodDays); await submitRecord(record.id, data); });
+      dialogs.record.querySelector('#delete-record')?.addEventListener('click', () => deleteRecord(record.id));
     }
-  }
-}
-
-// ==================== PERIOD OPERATIONS ====================
-function addPeriod(dateStr) {
-  const periods = sortedPeriods();
-  if (periods.includes(dateStr)) {
-    showToast('该日期已记录');
-    return;
-  }
-  // Don't allow duplicate dates too close (within 3 days)
-  for (const p of periods) {
-    const diff = Math.abs(new Date(dateStr) - new Date(p)) / (1000 * 60 * 60 * 24);
-    if (diff < 3) {
-      if (!confirm(`${dateStr} 与已有记录 ${p} 仅相隔 ${Math.round(diff)} 天，仍要记录吗？`)) {
-        return;
-      }
-      break;
-    }
-  }
-  appData.periods.push(dateStr);
-  saveData(appData);
-  refreshAll();
-  showToast('✅ 已记录');
-}
-
-function removePeriod(dateStr) {
-  appData.periods = appData.periods.filter(p => p !== dateStr);
-  saveData(appData);
-  refreshAll();
-  showToast('已删除');
-}
-
-function recordToday() {
-  const today = formatDate(new Date());
-  addPeriod(today);
-}
-
-function openDatePicker() {
-  document.getElementById('datePicker').value = formatDate(new Date());
-  document.getElementById('datePicker').max = formatDate(new Date());
-  document.getElementById('modal').classList.add('active');
-}
-
-function closeModal() {
-  document.getElementById('modal').classList.remove('active');
-}
-
-function confirmDate() {
-  const val = document.getElementById('datePicker').value;
-  if (!val) { showToast('请选择日期'); return; }
-  closeModal();
-  addPeriod(val);
-}
-
-function updateCycleLength() {
-  const val = parseInt(document.getElementById('cycleLengthInput').value);
-  if (isNaN(val) || val < 20 || val > 45) {
-    showToast('请输入 20-45 之间的天数');
-    return;
-  }
-  appData.cycleLength = val;
-  saveData(appData);
-  refreshAll();
-  showToast(`周期已设为 ${val} 天`);
-}
-
-function updatePeriodDays() {
-  const val = parseInt(document.getElementById('periodDaysInput').value);
-  if (isNaN(val) || val < 2 || val > 10) {
-    showToast('请输入 2-10 之间的天数');
-    return;
-  }
-  appData.periodDays = val;
-  saveData(appData);
-  refreshAll();
-  showToast(`经期持续天数已设为 ${val} 天`);
-}
-
-function clearAll() {
-  if (confirm('确定要清空所有经期记录吗？此操作不可撤销！')) {
-    if (confirm('再次确认：删除所有数据？')) {
-      appData.periods = [];
-      saveData(appData);
-      refreshAll();
-      showToast('已清空全部记录');
-    }
-  }
-}
-
-function exportData() {
-  const blob = new Blob([JSON.stringify(appData, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `period-data-${formatDate(new Date())}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('数据已导出');
-}
-
-// ==================== STATS ====================
-function renderStats() {
-  const periods = sortedPeriods();
-  const lastPeriod = periods.length > 0 ? periods[periods.length - 1] : null;
-  const cycleLen = appData.cycleLength;
-
-  // Average cycle
-  let avgCycle = null;
-  if (periods.length >= 2) {
-    let total = 0;
-    for (let i = 1; i < periods.length; i++) {
-      const diff = (new Date(periods[i]) - new Date(periods[i - 1])) / (1000 * 60 * 60 * 24);
-      total += diff;
-    }
-    avgCycle = Math.round(total / (periods.length - 1));
-  }
-
-  // Next predicted
-  let nextPredicted = null;
-  if (lastPeriod) {
-    const next = new Date(lastPeriod + 'T00:00:00');
-    next.setDate(next.getDate() + cycleLen);
-    nextPredicted = formatDate(next);
-  }
-
-  // Days until next
-  let daysUntil = null;
-  if (nextPredicted) {
-    daysUntil = Math.round((new Date(nextPredicted + 'T00:00:00') - new Date(formatDate(new Date()) + 'T00:00:00')) / (1000 * 60 * 60 * 24));
-  }
-
-  const statsRow = document.getElementById('statsRow');
-  let nextLabel = '预计还有';
-  let nextClass = 'success';
-  if (daysUntil !== null) {
-    if (daysUntil < 0) {
-      nextLabel = '已过期';
-      nextClass = 'warning';
-    } else if (daysUntil <= 3) {
-      nextLabel = '即将来临';
-      nextClass = 'warning';
-    }
-  }
-
-  statsRow.innerHTML = `
-    <div class="stat-card">
-      <div class="stat-value">${lastPeriod || '—'}</div>
-      <div class="stat-label">最近一次经期</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-value">${avgCycle !== null ? avgCycle + '天' : cycleLen + '天'}</div>
-      <div class="stat-label">${avgCycle !== null ? '平均周期' : '设定周期'}</div>
-    </div>
-    <div class="stat-card ${nextClass}">
-      <div class="stat-value">${nextPredicted || '—'}</div>
-      <div class="stat-label">${nextLabel}${daysUntil !== null && daysUntil >= 0 ? ' · ' + daysUntil + '天' : ''}</div>
-    </div>
-  `;
-}
-
-// ==================== HISTORY ====================
-function renderHistory() {
-  const periods = sortedPeriods();
-  const list = document.getElementById('historyList');
-  if (periods.length === 0) {
-    list.innerHTML = '<div class="empty-state">暂无记录，点击上方按钮开始记录</div>';
-    return;
-  }
-  let html = '';
-  for (let i = periods.length - 1; i >= 0; i--) {
-    const p = periods[i];
-    let cycleInfo = '';
-    if (i > 0) {
-      const diff = Math.round((new Date(p) - new Date(periods[i - 1])) / (1000 * 60 * 60 * 24));
-      cycleInfo = `← 距上次 ${diff} 天`;
-    }
-    html += `
-      <div class="history-item">
-        <div>
-          <span class="date">${p}</span>
-          ${cycleInfo ? `<span class="cycle-info"> ${cycleInfo}</span>` : ''}
-        </div>
-        <button class="delete-btn" onclick="event.stopPropagation(); removePeriod('${p}')" title="删除">✕</button>
-      </div>
-    `;
-  }
-  list.innerHTML = html;
-}
-
-function refreshAll() {
-  renderCalendar();
-  renderStats();
-  renderHistory();
-  document.getElementById('cycleLengthInput').value = appData.cycleLength;
-  document.getElementById('periodDaysInput').value = appData.periodDays;
-}
-
-// ==================== KEYBOARD ====================
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeModal();
-});
-
-// ==================== FACE AUTH ====================
-// API 地址：开发环境连 localhost，生产环境用 nginx 代理
-// ==================== 人脸识别鉴权 (face-api.js) ====================
-const FACE_STORAGE_KEY = 'face_registry';
-const PIN_STORAGE_KEY = 'face_pin_hash';
-const PRESET_PIN_HASH = "63470bd09c60478f8b24c7ba0b58401e266bed6d6f6ebaf20fe74f3bf05c8d1c";  // cxx071400.
-const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
-let lockStream = null;
-let lockVerified = false;
-let cameraReady = false;
-let faceModelReady = false;
-let registerPhotoCaptured = false;
-
-
-// 初始化 face-api 模型
-async function initFaceModels() {
-  const subtitle = document.getElementById('lockSubtitle');
-  const btn = document.getElementById('verifyBtn');
-  
-  // face-api.js 由本地 <script> 标签同步加载，这里确认就绪
-  if (typeof faceapi === 'undefined') {
-    subtitle.textContent = '⚠️ 库文件加载失败，请刷新';
-    btn.textContent = '无效';
-    return false;
-  }
-  
-  try {
-    subtitle.textContent = '⏳ 正在加载模型...';
-    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-    faceModelReady = true;
-    subtitle.textContent = '请正对摄像头进行人脸识别';
-    updateVerifyBtn();
-    return true;
-  } catch (e) {
-    subtitle.textContent = '⚠️ 模型加载失败: ' + e.message;
-    btn.textContent = '🔄 重试';
-    btn.disabled = false;
-    btn.onclick = () => { location.reload(); };
-    return false;
-  }
-}
-
-function updateVerifyBtn() {
-  const btn = document.getElementById('verifyBtn');
-  const registerLink = document.getElementById('lockRegisterLink');
-  const hasRegistered = !!localStorage.getItem(FACE_STORAGE_KEY);
-  btn.onclick = verifyFace;
-  btn.textContent = '🔍 验证身份';
-  btn.disabled = false;
-  registerLink.classList.toggle('subtle', hasRegistered);
-}
-
-// 初始化摄像头
-async function initCamera() {
-  const video = document.getElementById('lockCamera');
-  const hint = document.getElementById('cameraHint');
-  
-  try {
-    lockStream = await navigator.mediaDevices.getUserMedia({
-      video: { width: 640, height: 480, facingMode: 'user' },
-      audio: false
-    });
-    video.srcObject = lockStream;
-    video.onloadedmetadata = async () => {
-      cameraReady = true;
-      hint.textContent = '请正脸对准摄像头';
-      updateVerifyBtn();
-    };
-  } catch (e) {
-    hint.textContent = '❌ 需要摄像头权限';
-    updateVerifyBtn();
-  }
-}
-
-// 停止摄像头
-function stopCamera() {
-  if (lockStream) { lockStream.getTracks().forEach(t => t.stop()); lockStream = null; }
-  cameraReady = false;
-}
-
-// 人脸验证
-async function verifyFace() {
-  if (!cameraReady || !faceModelReady || lockVerified) return;
-  
-  const video = document.getElementById('lockCamera');
-  const status = document.getElementById('lockStatus');
-  const btn = document.getElementById('verifyBtn');
-  
-  if (!localStorage.getItem(FACE_STORAGE_KEY)) {
-    status.textContent = '⚠️ 请先注册人脸';
-    status.className = 'lock-status error';
-    btn.disabled = false;
-    return;
-  }
-  
-  btn.disabled = true;
-  btn.textContent = '⏳ 检测中...';
-  status.textContent = '';
-  status.className = 'lock-status loading';
-  
-  try {
-    const detection = await faceapi.detectSingleFace(video,
-      new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }));
-    
-    if (!detection) {
-      status.textContent = '❌ 未检测到人脸，请正对摄像头';
-      status.className = 'lock-status error';
-      btn.disabled = false; btn.textContent = '🔄 重新验证';
-      return;
-    }
-    
-    lockVerified = true;
-    status.textContent = '✅ 验证通过！';
-    status.className = 'lock-status success';
-    btn.textContent = '✅ 验证通过';
-    sessionStorage.setItem('face_verified', 'true');
-    sessionStorage.setItem('face_verified_at', Date.now().toString());
-    setTimeout(() => {
-      document.getElementById('lockScreen').classList.add('hidden');
-      document.getElementById('mainApp').style.display = '';
-      stopCamera();
-      refreshAll();
-    }, 600);
-  } catch (e) {
-    status.textContent = '⚠️ 检测出错: ' + e.message;
-    status.className = 'lock-status error';
-    btn.disabled = false; btn.textContent = '🔄 重试';
-  }
-}
-
-
-
-// 注册表单
-async function verifyRegisterPin() {
-  const pinInput = prompt('请输入管理员密码以注册人脸：');
-  if (!pinInput) return null;
-  const inputHash = Array.from(
-    new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pinInput + 'face_lock_salt')))
-  ).map(b => b.toString(16).padStart(2,'0')).join('');
-  return inputHash === PRESET_PIN_HASH;
-}
-
-async function showRegisterForm() {
-  const lockStatus = document.getElementById('lockStatus');
-  const pinOk = await verifyRegisterPin();
-  if (pinOk === null) {
-    lockStatus.textContent = '';
-    lockStatus.className = 'lock-status';
-    return;
-  }
-  if (pinOk === false) {
-    lockStatus.textContent = '❌ 密码错误';
-    lockStatus.className = 'lock-status error';
-    return;
-  }
-
-  lockStatus.textContent = '';
-  const regForm = document.getElementById('registerForm');
-  regForm.classList.add('active');
-  retakeRegisterPhoto();
-  document.getElementById('regName').focus();
-}
-
-function hideRegisterForm() {
-  document.getElementById('registerForm').classList.remove('active');
-  document.getElementById('regStatus').textContent = '';
-  retakeRegisterPhoto();
-}
-
-function captureRegisterPhoto() {
-  const regStatus = document.getElementById('regStatus');
-  const video = document.getElementById('lockCamera');
-  const canvas = document.getElementById('lockCanvas');
-  const context = canvas.getContext('2d');
-  
-  if (!cameraReady) {
-    regStatus.textContent = '摄像头未就绪';
-    regStatus.className = 'lock-status error';
-    return;
-  }
-  
-  canvas.width = video.videoWidth || 640;
-  canvas.height = video.videoHeight || 480;
-  context.save();
-  context.translate(canvas.width, 0);
-  context.scale(-1, 1);
-  context.drawImage(video, 0, 0, canvas.width, canvas.height);
-  context.restore();
-  
-  video.style.display = 'none';
-  canvas.style.display = 'block';
-  const captureBtn = document.getElementById('captureBtn');
-  captureBtn.textContent = '📸 拍照';
-  captureBtn.style.display = 'none';
-  document.getElementById('confirmRegisterRow').style.display = 'flex';
-  document.getElementById('cameraHint').textContent = '请确认照片清晰';
-  regStatus.textContent = '';
-  regStatus.className = 'lock-status';
-  registerPhotoCaptured = true;
-}
-
-function retakeRegisterPhoto() {
-  const video = document.getElementById('lockCamera');
-  const canvas = document.getElementById('lockCanvas');
-  video.style.display = '';
-  canvas.style.display = 'none';
-  const captureBtn = document.getElementById('captureBtn');
-  captureBtn.textContent = '📸 拍照';
-  captureBtn.style.display = '';
-  document.getElementById('confirmRegisterRow').style.display = 'none';
-  document.getElementById('cameraHint').textContent = cameraReady ? '请正脸对准摄像头' : '正在初始化...';
-  registerPhotoCaptured = false;
-}
-
-// 人脸注册
-async function registerFace() {
-  const name = document.getElementById('regName').value.trim();
-  const regStatus = document.getElementById('regStatus');
-  
-  if (!name) { regStatus.textContent = '请输入姓名'; regStatus.className = 'lock-status error'; return; }
-  if (!cameraReady || !faceModelReady) { regStatus.textContent = '系统未就绪'; regStatus.className = 'lock-status error'; return; }
-  if (!registerPhotoCaptured) { regStatus.textContent = '请先拍照'; regStatus.className = 'lock-status error'; return; }
-  
-  regStatus.textContent = '⏳ 正在检测人脸...';
-  regStatus.className = 'lock-status loading';
-  
-  try {
-    const canvas = document.getElementById('lockCanvas');
-    const detection = await faceapi.detectSingleFace(canvas,
-      new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }));
-    
-    if (!detection) {
-      regStatus.textContent = '❌ 未检测到清晰人脸，请正对摄像头';
-      regStatus.className = 'lock-status error';
-      return;
-    }
-    
-    localStorage.setItem(FACE_STORAGE_KEY, JSON.stringify({ name: name, registeredAt: Date.now() }));
-    regStatus.textContent = `✅ 已成功注册 "${name}"`;
-    regStatus.className = 'lock-status success';
-    updateVerifyBtn();
-    setTimeout(hideRegisterForm, 1500);
-  } catch (e) {
-    regStatus.textContent = '⚠️ 检测失败: ' + e.message;
-    regStatus.className = 'lock-status error';
-  }
-}
-
-
-// 检查 session
-function checkFaceSession() {
-  const verified = sessionStorage.getItem('face_verified');
-  const verifiedAt = parseInt(sessionStorage.getItem('face_verified_at') || '0');
-  const maxAge = 30 * 60 * 1000;
-  
-  if (verified === 'true' && (Date.now() - verifiedAt) < maxAge) {
-    lockVerified = true;
-    document.getElementById('lockScreen').classList.add('hidden');
-    document.getElementById('mainApp').style.display = '';
-    return true;
-  }
-  return false;
-}
-
-// 页面加载
-async function initLock() {
-  if (checkFaceSession()) { return; }
-  document.getElementById('mainApp').style.display = 'none';
-  document.getElementById('lockScreen').classList.remove('hidden');
-  
-  const modelOk = await initFaceModels();
-  if (modelOk) await initCamera();
-}
-
-// 暴露全局引用确保 onclick 能调用
-window.verifyFace = verifyFace;
-window.registerFace = registerFace;
-window.captureRegisterPhoto = captureRegisterPhoto;
-window.retakeRegisterPhoto = retakeRegisterPhoto;
-window.showRegisterForm = showRegisterForm;
-window.hideRegisterForm = hideRegisterForm;
-document.getElementById('regName').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    if (registerPhotoCaptured) {
-      registerFace();
-    } else {
-      captureRegisterPhoto();
-    }
-  }
-});
-initLock();
-window.addEventListener('beforeunload', stopCamera);
-
-// ==================== INIT ====================
-function initApp() {
-  // initCalendar, renderStats, renderHistory are called after face unlock
-  // or immediately if session is valid
-  initCalendar();
-  renderStats();
-  renderHistory();
-  document.getElementById('cycleLengthInput').value = appData.cycleLength;
-  document.getElementById('periodDaysInput').value = appData.periodDays;
-}
-initApp();
-</script>
-
-</body>
-</html>
-
+    async function openRecordById(id) { try { const record = await request(`/v1/period/records/${encodeURIComponent(id)}${query()}`); openRecordDialog(record); } catch (error) { showToast(error.message); } }
+    async function submitRecord(id, data) { const error = dialogs.record.querySelector('#record-error'); try { const path = id ? `/v1/period/records/${encodeURIComponent(id)}${query()}` : `/v1/period/records${query()}`; await request(path, { method: id ? 'PUT' : 'POST', body: JSON.stringify(data) }); dialogs.record.close(); showToast(id ? '记录已保存' : '已记录经期首日'); await load(); } catch (err) { error.textContent = err.message; error.hidden = false; } }
+    async function deleteRecord(id) { if (!confirm('删除这条经期记录？此操作不可恢复。')) return; try { await request(`/v1/period/records/${encodeURIComponent(id)}${query()}`, { method: 'DELETE' }); dialogs.record.close(); showToast('记录已删除'); await load(); } catch (error) { showToast(error.message); } }
+    function openSettingsDialog() { const p = profile(); openDialog(dialogs.settings, `<form class="dialog-body" id="settings-form"><div class="dialog-title"><h2>周期设置</h2><button type="button" class="close-button" data-close aria-label="关闭">×</button></div><div class="form-grid"><label>平均周期长度<input name="cycleLength" type="number" min="20" max="45" value="${p.cycleLength}" required></label><label>经期持续天数<input name="periodDays" type="number" min="2" max="10" value="${p.defaultPeriodDays}" required></label><label>预测方式<select name="predictionMode"><option value="MANUAL" ${p.predictionMode !== 'AVERAGE' ? 'selected' : ''}>按设定周期预测</option><option value="AVERAGE" ${p.predictionMode === 'AVERAGE' ? 'selected' : ''}>按历史平均预测</option></select></label><p class="field-error" id="settings-error" hidden></p></div><div class="dialog-actions"><button class="quiet-button" type="button" data-close>取消</button><button class="primary-button" type="submit">保存设置</button></div></form>`); dialogs.settings.querySelector('[data-close]')?.addEventListener('click', () => dialogs.settings.close()); dialogs.settings.querySelector('#settings-form').addEventListener('submit', async event => { event.preventDefault(); const data = Object.fromEntries(new FormData(event.currentTarget)); data.cycleLength = Number(data.cycleLength); data.periodDays = Number(data.periodDays); try { await request(`/v1/period/profile${query()}`, { method: 'PUT', body: JSON.stringify(data) }); dialogs.settings.close(); showToast('周期设置已保存'); await load(); } catch (error) { const node = dialogs.settings.querySelector('#settings-error'); node.textContent = error.message; node.hidden = false; } }); }
+    function openShareDialog() { const own = state.shares.createdByMe || []; const incoming = state.shares.sharedWithMe || []; openDialog(dialogs.share, `<div class="dialog-body"><div class="dialog-title"><h2>共同编辑管理</h2><button type="button" class="close-button" data-close aria-label="关闭">×</button></div><form class="form-grid" id="share-form"><label>伴侣的 Shinra-Hub 邮箱<input type="email" name="viewerEmail" placeholder="name@example.com" required></label><p>添加后，对方默认可查看和编辑你的周期记录。</p><p class="field-error" id="share-error" hidden></p><button class="primary-button" type="submit">添加共同编辑者</button></form><div class="share-list"><h3>我创建的共享</h3>${own.length ? own.map(item => `<div class="share-row"><div><strong>${escapeHtml(item.viewerName || item.viewerEmail)}</strong><span>${escapeHtml(item.viewerEmail || '')} · ${item.permission === 'EDIT' ? '可查看和编辑' : '仅查看'}</span></div><button class="danger-button" data-revoke="${item.id}">取消共享</button></div>`).join('') : '<p>尚未添加共同编辑者。</p>'}<h3>查看其他周期</h3><div class="share-row"><div><strong>我的周期记录</strong><span>查看和编辑自己的记录</span></div><button class="quiet-button" id="switch-own">查看</button></div>${incoming.length ? incoming.map(item => `<div class="share-row"><div><strong>${escapeHtml(item.ownerName || item.ownerEmail)}</strong><span>可查看和编辑</span></div><button class="quiet-button" data-switch-share="${item.id}">查看</button></div>`).join('') : '<p>暂未收到共享。</p>'}</div></div>`); dialogs.share.querySelector('[data-close]')?.addEventListener('click', () => dialogs.share.close()); dialogs.share.querySelector('#share-form').addEventListener('submit', createShare); dialogs.share.querySelectorAll('[data-revoke]').forEach(button => button.addEventListener('click', () => revokeShare(button.dataset.revoke))); dialogs.share.querySelector('#switch-own')?.addEventListener('click', () => { state.shareId = ''; dialogs.share.close(); load(); }); dialogs.share.querySelectorAll('[data-switch-share]').forEach(button => button.addEventListener('click', () => { state.shareId = button.dataset.switchShare; dialogs.share.close(); load(); })); }
+    async function createShare(event) { event.preventDefault(); const error = dialogs.share.querySelector('#share-error'); try { await request('/v1/period/shares', { method: 'POST', body: JSON.stringify({ viewerEmail: new FormData(event.currentTarget).get('viewerEmail'), permission: 'EDIT' }) }); showToast('已添加共同编辑者'); await loadShares(); openShareDialog(); } catch (err) { error.textContent = err.message; error.hidden = false; } }
+    async function revokeShare(id) { if (!confirm('取消这项共同编辑？对方将不能再访问你的周期记录。')) return; try { await request(`/v1/period/shares/${encodeURIComponent(id)}`, { method: 'DELETE' }); showToast('已取消共享'); await loadShares(); openShareDialog(); } catch (error) { showToast(error.message); } }
+    async function loadShares() { state.shares = await request('/v1/period/shares'); }
+    async function loadCalendar() { state.loading = true; state.error = ''; render(); try { state.calendar = await request(apiUrl('/v1/period/calendar', { month: monthParam(state.month), ...(state.shareId ? { shareId: state.shareId } : {}) }).replace(API_BASE, '')); } catch (error) { state.error = error.message; } finally { state.loading = false; render(); } }
+    async function load() { state.loading = true; state.error = ''; render(); try { await loadShares(); if (state.shareId && !state.shares.sharedWithMe.some(item => item.id === state.shareId)) state.shareId = ''; state.calendar = await request(apiUrl('/v1/period/calendar', { month: monthParam(state.month), ...(state.shareId ? { shareId: state.shareId } : {}) }).replace(API_BASE, '')); } catch (error) { state.error = error.message; } finally { state.loading = false; render(); } }
+    let toastTimer; function showToast(message) { const node = document.querySelector('#toast'); node.textContent = message; node.classList.add('is-visible'); clearTimeout(toastTimer); toastTimer = setTimeout(() => node.classList.remove('is-visible'), 2600); }
+    load();
+  </script>
 </body>
 </html>
