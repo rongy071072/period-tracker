@@ -183,7 +183,7 @@
     function isInRange(day, start, end, days) { const endDate = end || isoDate(new Date(new Date(start + 'T00:00:00').getTime() + ((days || 7) - 1) * 86400000)); return day >= start && day <= endDate; }
     function render() {
       if (!token()) return renderAuthState();
-      const me = userInfo() || {}; const share = activeShare(); const summary = state.calendar?.summary || {};
+      const me = userInfo() || {}; const share = activeShare(); const summary = state.calendar?.summary || {}; const cycleDays = profile().predictionMode === 'AVERAGE' ? summary.averageCycleDays || profile().cycleLength : profile().cycleLength;
       const title = state.loading ? '正在整理周期信息' : summary.nextPredictedStartDate ? `下一次预计在 ${formatDate(summary.nextPredictedStartDate)}` : '从第一次记录开始';
       app.innerHTML = `
         <header class="topbar"><a class="brand" href="${escapeHtml(HOME_URL)}" aria-label="返回 Shinra-Hub">时序</a>
@@ -191,7 +191,7 @@
         </header>
         <section id="main-content" class="workspace">
           <div class="main-column">
-            <div class="heading-block"><h1>${title}</h1><p>${state.loading ? '正在加载真实记录…' : summary.lastPeriodStartDate ? `最近一次记录在 ${formatDate(summary.lastPeriodStartDate)}，当前按 ${summary.averageCycleDays || profile().cycleLength} 天周期计算。预测日期仅供日常参考。 ` : '记录一次经期首日后，这里会展示预测日期与周期历史。'}</p></div>
+            <div class="heading-block"><h1>${title}</h1><p>${state.loading ? '正在加载真实记录…' : summary.lastPeriodStartDate ? `最近一次记录在 ${formatDate(summary.lastPeriodStartDate)}，当前按 ${cycleDays} 天周期计算。预测日期仅供日常参考。 ` : '记录一次经期首日后，这里会展示预测日期与周期历史。'}</p></div>
             ${state.error ? `<div class="notice">${escapeHtml(state.error)} <button class="panel-link" id="retry-button">重新加载</button></div>` : ''}
             ${state.loading ? '<div class="loading"><div class="skeleton wide"></div><div class="skeleton"></div><div class="skeleton short"></div></div>' : calendarHtml()}
           </div>
